@@ -45,6 +45,7 @@ jobs:
           # Use a personal access token if provided as secret GH_PAGES_PAT,
           # otherwise fall back to the automatically-provided GITHUB_TOKEN.
           github_token: ${{ secrets.GH_PAGES_PAT || github.token }}
-          publish_dir: ./dist/hms
+          # publish the `browser` output so index.html is at repo root
+          publish_dir: ./dist/hms/browser
           publish_branch: gh-pages
           allow_empty_commit: true
