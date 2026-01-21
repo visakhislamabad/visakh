@@ -18,6 +18,15 @@ export class App {
     public authService: AuthService,
     private router: Router
   ) {
+    // Restore intended route from 404.html redirect (GitHub Pages SPA support)
+    const redirectPath = sessionStorage.getItem('redirectPath');
+    if (redirectPath && redirectPath !== '/' && this.router.url === '/') {
+      sessionStorage.removeItem('redirectPath');
+      this.router.navigateByUrl(redirectPath).catch(() => {
+        // If navigation fails, let the router handle it
+      });
+    }
+
     // Check if current route is login to hide nav
     this.router.events.subscribe(() => {
       this.showNav = !this.router.url.includes('login');
