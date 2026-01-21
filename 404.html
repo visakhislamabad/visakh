@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirecting...</title>
+    <script type="text/javascript">
+      // Redirect to index.html, preserving the attempted path as a query parameter
+      // so Angular Router can handle the navigation client-side
+      var path = window.location.pathname.replace(/\/$/, "");
+      var parts = path.split("/");
+      
+      // Find the repo name (adjust if your repo name differs)
+      var repoIndex = parts.indexOf("visakh");
+      
+      if (repoIndex !== -1) {
+        // Extract path after repo name (e.g., /login, /dashboard)
+        var routePath = "/" + parts.slice(repoIndex + 1).join("/");
+        var hashPath = routePath.replace(/\/$/, "");
+        
+        // Redirect to index.html with the route as a hash so Angular can handle it
+        window.location.replace(
+          window.location.pathname.split("/visakh")[0] + 
+          "/visakh/#" + 
+          hashPath
+        );
+      }
+    </script>
+  </head>
+  <body></body>
+</html>
