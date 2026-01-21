@@ -1,4 +1,7 @@
+
 name: Deploy to GitHub Pages
+permissions:
+  contents: write
 
 on:
   push:
@@ -39,7 +42,9 @@ jobs:
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Use a personal access token if provided as secret GH_PAGES_PAT,
+          # otherwise fall back to the automatically-provided GITHUB_TOKEN.
+          github_token: ${{ secrets.GH_PAGES_PAT || github.token }}
           publish_dir: ./dist/hms
           publish_branch: gh-pages
           allow_empty_commit: true
