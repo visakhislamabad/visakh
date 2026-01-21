@@ -1,0 +1,279 @@
+<div class="inventory-container">
+  <div class="header">
+    <h1>Inventory & Purchasing</h1>
+    <button class="btn btn-primary" (click)="activeTab === 'stock' ? openAddItemModal() : (activeTab === 'purchases' ? openAddPurchaseModal() : openAddAdjustmentModal())">
+      + {{ activeTab === 'stock' ? 'Add Item' : (activeTab === 'purchases' ? 'Record Purchase' : 'Record Adjustment') }}
+    </button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button [class.active]="activeTab === 'stock'" (click)="activeTab = 'stock'">Current Stock</button>
+    <button [class.active]="activeTab === 'purchases'" (click)="activeTab = 'purchases'">Purchase History</button>
+    <button [class.active]="activeTab === 'adjustments'" (click)="activeTab = 'adjustments'">Adjustments</button>
+    <button [class.active]="activeTab === 'suppliers'" (click)="activeTab = 'suppliers'">Suppliers</button>
+  </div>
+
+  <!-- Current Stock Tab -->
+  <div *ngIf="activeTab === 'stock'" class="tab-content">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Item Name</th>
+          <th>Category</th>
+          <th>Current Stock</th>
+          <th>Unit</th>
+          <th>Low Stock Alert</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of inventoryItems">
+          <td>{{ item.name }}</td>
+          <td>{{ item.category }}</td>
+          <td>{{ item.currentStock }}</td>
+          <td>{{ item.unit }}</td>
+          <td>{{ item.lowStockThreshold }}</td>
+          <td>
+            <span class="status-badge" 
+                  [class.low]="item.currentStock < item.lowStockThreshold"
+                  [class.ok]="item.currentStock >= item.lowStockThreshold">
+              {{ item.currentStock < item.lowStockThreshold ? '⚠️ Low' : '✅ OK' }}
+            </span>
+          </td>
+          <td class="actions">
+            <button class="btn btn-sm btn-edit" (click)="editItem(item)">Edit</button>
+            <button class="btn btn-sm btn-delete" (click)="deleteItem(item)">Delete</button>
+          </td>
+        </tr>
+        <tr *ngIf="inventoryItems.length === 0">
+          <td colspan="7" class="no-data">No inventory items</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Purchase History Tab -->
+  <div *ngIf="activeTab === 'purchases'" class="tab-content">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Supplier</th>
+          <th>Item</th>
+          <th>Quantity</th>
+          <th>Cost Price</th>
+          <th>Total Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let purchase of purchases">
+          <td>{{ purchase.date | date:'short' }}</td>
+          <td>{{ purchase.supplierName }}</td>
+          <td>{{ purchase.inventoryItemName }}</td>
+          <td>{{ purchase.quantity }} {{ purchase.unit }}</td>
+          <td>{{ purchase.costPrice.toFixed(0) }}</td>
+          <td>{{ purchase.totalCost.toFixed(0) }}</td>
+        </tr>
+        <tr *ngIf="purchases.length === 0">
+          <td colspan="6" class="no-data">No purchase records</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Suppliers Tab -->
+  <div *ngIf="activeTab === 'suppliers'" class="tab-content">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Contact</th>
+          <th>Email</th>
+          <th>Address</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let supplier of suppliers">
+          <td>{{ supplier.name }}</td>
+          <td>{{ supplier.contact }}</td>
+          <td>{{ supplier.email }}</td>
+          <td>{{ supplier.address }}</td>
+        </tr>
+        <tr *ngIf="suppliers.length === 0">
+          <td colspan="4" class="no-data">No suppliers</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Adjustments Tab -->
+  <div *ngIf="activeTab === 'adjustments'" class="tab-content">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Item</th>
+          <th>Type</th>
+          <th>Quantity</th>
+          <th>Reason</th>
+          <th>Adjusted By</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let adj of adjustments">
+          <td>{{ adj.date | date:'short' }}</td>
+          <td>{{ adj.inventoryItemName }}</td>
+          <td>
+            <span class="badge" [class.consumption]="adj.adjustmentType === 'consumption'" 
+                                [class.wastage]="adj.adjustmentType === 'wastage'"
+                                [class.correction]="adj.adjustmentType === 'correction'"
+                                [class.production]="adj.adjustmentType === 'production'">
+              {{ adj.adjustmentType }}
+            </span>
+          </td>
+          <td [class.negative]="adj.quantity < 0" [class.positive]="adj.quantity > 0">
+            {{ adj.quantity > 0 ? '+' : '' }}{{ adj.quantity }} {{ adj.unit }}
+          </td>
+          <td>{{ adj.reason }}</td>
+          <td>{{ adj.adjustedBy }}</td>
+        </tr>
+        <tr *ngIf="adjustments.length === 0">
+          <td colspan="6" class="no-data">No adjustment records</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Add Item Modal -->
+  <div class="modal" *ngIf="showAddItemModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>{{ isEditMode ? 'Edit' : 'Add' }} Inventory Item</h2>
+        <button class="close-btn" (click)="showAddItemModal = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Item Name *</label>
+          <input type="text" [(ngModel)]="currentItem.name" />
+        </div>
+        <div class="form-group">
+          <label>Category *</label>
+          <select [(ngModel)]="currentItem.category">
+            <option>Vegetables</option>
+            <option>Meat</option>
+            <option>Spices</option>
+            <option>Oil</option>
+            <option>Rice</option>
+            <option>Crockery</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Current Stock</label>
+            <input type="number" [(ngModel)]="currentItem.currentStock" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Unit</label>
+            <select [(ngModel)]="currentItem.unit">
+              <option value="items">Items</option>
+              <option value="kg">Kg</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Low Stock Threshold</label>
+          <input type="number" [(ngModel)]="currentItem.lowStockThreshold" min="0" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="showAddItemModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="saveItem()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Purchase Modal -->
+  <div class="modal" *ngIf="showAddPurchaseModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Record Purchase</h2>
+        <button class="close-btn" (click)="showAddPurchaseModal = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Supplier Name *</label>
+          <input type="text" [(ngModel)]="currentPurchase.supplierName" />
+        </div>
+        <div class="form-group">
+          <label>Inventory Item *</label>
+          <select [(ngModel)]="currentPurchase.inventoryItemId" (change)="onPurchaseItemChange()">
+            <option value="">Select Item</option>
+            <option *ngFor="let item of inventoryItems" [value]="item.id">{{ item.name }}</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Quantity *</label>
+            <input type="number" [(ngModel)]="currentPurchase.quantity" (input)="onPurchaseQuantityChange()" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Cost Price *</label>
+            <input type="number" [(ngModel)]="currentPurchase.costPrice" (input)="onPurchaseQuantityChange()" min="0" step="0.01" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Total Cost</label>
+          <input type="number" [(ngModel)]="currentPurchase.totalCost" readonly />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="showAddPurchaseModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="savePurchase()">Save Purchase</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Adjustment Modal -->
+  <div class="modal" *ngIf="showAddAdjustmentModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Record Inventory Adjustment</h2>
+        <button class="close-btn" (click)="showAddAdjustmentModal = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Inventory Item *</label>
+          <select [(ngModel)]="currentAdjustment.inventoryItemId" (change)="onAdjustmentItemChange()">
+            <option value="">Select Item</option>
+            <option *ngFor="let item of inventoryItems" [value]="item.id">{{ item.name }} ({{ item.currentStock }} {{ item.unit }})</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Adjustment Type *</label>
+          <select [(ngModel)]="currentAdjustment.adjustmentType">
+            <option value="consumption">Consumption (reduce stock)</option>
+            <option value="wastage">Wastage (reduce stock)</option>
+            <option value="correction">Stock Correction (add/reduce)</option>
+            <option value="production">Production (add prepared items)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quantity *</label>
+          <input type="number" [(ngModel)]="currentAdjustment.quantity" step="0.01" placeholder="Enter positive number" />
+          <small>For consumption/wastage, enter positive number (will be deducted). For correction, use +/- as needed.</small>
+        </div>
+        <div class="form-group">
+          <label>Reason *</label>
+          <textarea [(ngModel)]="currentAdjustment.reason" rows="3" placeholder="e.g., Used 10 kg of meat for today's production"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="showAddAdjustmentModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="saveAdjustment()">Save Adjustment</button>
+      </div>
+    </div>
+  </div>
+</div>

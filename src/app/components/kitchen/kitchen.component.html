@@ -1,0 +1,92 @@
+<div class="kitchen-container">
+  <h1>Kitchen Display System</h1>
+  <p class="subtitle">Active orders to prepare</p>
+
+  <div class="orders-grid">
+    <div *ngFor="let order of orders" class="order-card" [class.cooking]="order.status === 'cooking'">
+      <div class="order-header">
+        <div class="order-info">
+          <h3>{{ order.isTakeaway ? '📦 Takeaway' : '🪑 Table ' + order.tableNumber }}</h3>
+          <div class="order-number">{{ order.orderNumber }}</div>
+        </div>
+        <div class="order-time" [class.urgent]="getElapsedTime(order).includes('15')">
+          ⏱️ {{ getElapsedTime(order) }}
+        </div>
+      </div>
+
+      <div class="order-items">
+        <div *ngFor="let item of order.items" class="order-item">
+          <span class="item-qty">{{ item.quantity }}x</span>
+          <span class="item-name">{{ item.menuItemName }}</span>
+        </div>
+      </div>
+
+      <div class="order-customer" *ngIf="order.customerName">
+        👤 {{ order.customerName }}
+      </div>
+
+      <div class="order-actions">
+        <button 
+          *ngIf="order.status === 'pending'" 
+          class="btn btn-start"
+          (click)="startCooking(order)"
+        >
+          🔥 Start Cooking
+        </button>
+        <button 
+          *ngIf="order.status === 'cooking'" 
+          class="btn btn-ready"
+          (click)="markReady(order)"
+        >
+          ✅ Mark Ready
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="orders.length === 0" class="no-orders">
+      <div class="no-orders-icon">✨</div>
+      <p>No active orders</p>
+      <small>New orders will appear here automatically</small>
+    </div>
+  </div>
+
+  <!-- Ready for Pickup Section -->
+  <div class="ready-section" *ngIf="readyOrders.length > 0">
+    <h2>🔔 Ready for Pickup</h2>
+    <p class="subtitle">Orders ready to be served</p>
+
+    <div class="orders-grid">
+      <div *ngFor="let order of readyOrders" class="order-card ready-card">
+        <div class="order-header">
+          <div class="order-info">
+            <h3>{{ order.isTakeaway ? '📦 Takeaway' : '🪑 Table ' + order.tableNumber }}</h3>
+            <div class="order-number">{{ order.orderNumber }}</div>
+          </div>
+          <div class="order-time ready-badge">
+            ✅ Ready
+          </div>
+        </div>
+
+        <div class="order-items">
+          <div *ngFor="let item of order.items" class="order-item">
+            <span class="item-qty">{{ item.quantity }}x</span>
+            <span class="item-name">{{ item.menuItemName }}</span>
+          </div>
+        </div>
+
+        <div class="order-customer" *ngIf="order.customerName">
+          👤 {{ order.customerName }}
+        </div>
+
+        <div class="order-actions">
+          <button 
+            class="btn btn-complete"
+            (click)="markCompleted(order)"
+          >
+            📋 Mark Completed
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,366 @@
+<div class="waiter-app">
+  <!-- SCREEN 1: FLOOR MAP -->
+  <div class="floor-map-screen" *ngIf="currentScreen === 'floorMap'">
+
+    <!-- Filter Tabs -->
+    <div class="filter-tabs">
+      <button 
+        [class.active]="selectedFilter === 'all'" 
+        (click)="setFilter('all')">
+        All
+      </button>
+      <button 
+        [class.active]="selectedFilter === 'free'" 
+        (click)="setFilter('free')">
+        Free
+      </button>
+      <button 
+        [class.active]="selectedFilter === 'occupied'" 
+        (click)="setFilter('occupied')">
+        Occupied
+      </button>
+      <button 
+        [class.active]="selectedFilter === 'billRequested'" 
+        (click)="setFilter('billRequested')">
+        Bill Requested
+      </button>
+    </div>
+
+    <!-- Table Grid -->
+    <div class="table-grid">
+      <div 
+        *ngFor="let table of filteredTables" 
+        class="table-card"
+        [class.free]="table.status === 'free'"
+        [class.occupied]="table.status === 'occupied'"
+        [class.bill-requested]="table.status === 'billRequested'"
+        (click)="selectTable(table)">
+        <div class="table-number">Table {{ table.number }}</div>
+        <div class="table-status" *ngIf="table.status === 'occupied'">
+          <div class="timer">⏱ {{ getTimeSinceSeated(table) }}</div>
+          <div class="amount" *ngIf="table.activeOrder">{{ table.activeOrder.totalAmount.toFixed(0) }} PKR</div>
+        </div>
+        <div class="table-status" *ngIf="table.status === 'billRequested'">
+          <div class="bill-icon">💵 Bill Requested</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Add Button -->
+    <button class="fab-button" (click)="startTakeaway()">
+      <span>+ New Takeaway</span>
+    </button>
+  </div>
+
+  <!-- SCREEN 2: TABLE DETAIL -->
+  <div class="table-detail-screen" *ngIf="currentScreen === 'tableDetail'">
+    <!-- Header -->
+    <div class="header">
+      <button class="back-btn" (click)="backToFloorMap()">← Back</button>
+      <div class="table-info">
+        <h2>Table {{ selectedTable?.number }}</h2>
+        <span class="guest-count">{{ selectedTable?.guestCount || 2 }} Guests</span>
+      </div>
+    </div>
+
+    <!-- Current Order List (Already Sent to Kitchen) -->
+    <div class="sent-items-section">
+      <h3>Current Order (Sent to Kitchen)</h3>
+      <div class="sent-items" *ngIf="selectedTable?.activeOrder?.items?.length; else noItems">
+        <div class="order-item sent" *ngFor="let item of selectedTable?.activeOrder?.items">
+          <div class="item-info">
+            <div class="item-name">{{ item.menuItemName }}</div>
+            <div class="item-notes" *ngIf="item.notes">📝 {{ item.notes }}</div>
+          </div>
+          <div class="item-qty">{{ item.quantity }}x</div>
+          <div class="item-price">{{ item.totalPrice.toFixed(0) }} PKR</div>
+          <div class="item-status">
+            <span 
+              class="status-badge" 
+              [style.background-color]="getStatusColor(selectedTable?.activeOrder?.status || 'pending')">
+              {{ getStatusText(selectedTable?.activeOrder?.status || 'pending') }}
+            </span>
+          </div>
+        </div>
+      </div>
+      <ng-template #noItems>
+        <div class="empty-state">No items ordered yet</div>
+      </ng-template>
+    </div>
+
+    <!-- Edit Existing Order (only when status is 'pending') -->
+    <div class="edit-order-section" *ngIf="editMode">
+      <h3>Edit Order</h3>
+      <div class="draft-items">
+        <div class="order-item draft" *ngFor="let item of editableItems">
+          <div class="item-info">
+            <div class="item-name">{{ item.menuItemName }}</div>
+            <div class="item-notes" *ngIf="item.notes">📝 {{ item.notes }}</div>
+          </div>
+          <div class="item-controls">
+            <input 
+              type="number" 
+              class="qty-input"
+              [(ngModel)]="item.quantity"
+              (ngModelChange)="updateEditableQuantity(item, item.quantity)"
+              step="0.1"
+              min="0.1"
+            />
+          </div>
+          <div class="item-price">{{ item.totalPrice.toFixed(0) }} PKR</div>
+          <button class="btn-remove" (click)="removeEditableItem(item)">✕</button>
+        </div>
+      </div>
+
+      <div class="totals-section">
+        <div class="total-row">
+          <span>Edited Subtotal:</span>
+          <span>{{ getEditableSubtotal().toFixed(0) }} PKR</span>
+        </div>
+      </div>
+
+      <div class="edit-actions">
+        <button class="btn-cancel" (click)="cancelEditOrder()">Close</button>
+        <button class="btn-confirm" (click)="saveOrderEdits()" [disabled]="isLoading || editableItems.length === 0">Save Changes</button>
+      </div>
+    </div>
+
+    <!-- Running Total -->
+    <div class="running-total">
+      <span>Running Total:</span>
+      <span class="total-amount">{{ selectedTable?.activeOrder?.totalAmount?.toFixed(0) || 0 }} PKR</span>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="table-actions">
+      <button class="btn-primary" (click)="goToAddItems()">
+        <span>+ Add Items</span>
+      </button>
+      <button class="btn-success" (click)="requestBill()">
+        <span>💵 Request Bill</span>
+      </button>
+      <button class="btn-secondary" *ngIf="canEditOrder() && !editMode" (click)="startEditOrder()">
+        <span>✏️ Edit Order</span>
+      </button>
+      <button class="btn-danger" *ngIf="canEditOrder()" (click)="cancelOrderWithReason()">
+        <span>🛑 Cancel Order</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: MENU SELECTION -->
+  <div class="menu-selection-screen" *ngIf="currentScreen === 'menuSelection'">
+    <!-- Header -->
+    <div class="header sticky">
+      <button class="back-btn" (click)="backToFloorMap()">← Back</button>
+      <div class="table-info">
+        <h2>Table {{ selectedTable?.number }}</h2>
+      </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="search-bar">
+      <input 
+        type="text" 
+        [(ngModel)]="searchText" 
+        placeholder="🔍 Search menu items..."
+      />
+    </div>
+
+    <!-- Category Slider -->
+    <div class="category-slider">
+      <button 
+        *ngFor="let cat of categories"
+        [class.active]="selectedCategory === cat"
+        (click)="selectedCategory = cat">
+        {{ cat }}
+      </button>
+    </div>
+
+    <!-- Item Grid -->
+    <div class="item-grid">
+      <!-- Regular Menu Items -->
+      <div 
+        class="menu-item-card" 
+        *ngFor="let item of filteredMenu"
+        [class.selected]="isItemSelected(item)"
+        (click)="openItemModifier(item)">
+        <div class="item-name">{{ item.name }}</div>
+        <div class="item-category">{{ item.category }}</div>
+        <div class="item-price">
+          {{ item.price.toFixed(0) }} PKR
+          <span class="item-unit" *ngIf="item.soldByWeight">/ {{ item.unit || 'kg' }}</span>
+        </div>
+      </div>
+
+      <!-- Deals -->
+      <div 
+        class="menu-item-card deal-card" 
+        *ngFor="let deal of filteredDeals"
+        (click)="addDealToCart(deal)">
+        <div class="deal-badge">⭐ DEAL</div>
+        <div class="item-name">{{ deal.name }}</div>
+        <div class="deal-items-preview">
+          <div class="deal-item-mini" *ngFor="let item of deal.items">
+            {{ item.quantity }}x {{ item.menuItemName }}
+          </div>
+        </div>
+        <div class="deal-pricing">
+          <span class="original-price">{{ deal.originalPrice.toFixed(0) }} PKR</span>
+          <span class="deal-price">{{ deal.dealPrice.toFixed(0) }} PKR</span>
+        </div>
+        <div class="savings-label">Save {{ deal.savingsPercent.toFixed(0) }}%</div>
+      </div>
+    </div>
+
+    <!-- View Cart Bar (Sticky Bottom) -->
+    <div class="view-cart-bar" *ngIf="draftCart.length > 0" (click)="viewCart()">
+      <span>{{ draftCart.length }} Items selected</span>
+      <span>{{ getDraftSubtotal().toFixed(0) }} PKR →</span>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: CART REVIEW -->
+  <div class="cart-review-screen" *ngIf="currentScreen === 'cartReview'">
+    <!-- Header -->
+    <div class="header">
+      <button class="back-btn" (click)="backToMenu()">← Back</button>
+      <h2>Review Order</h2>
+    </div>
+
+    <!-- Table Info -->
+    <div class="order-info-card">
+      <div class="info-row">
+        <span>Table:</span>
+        <span>{{ selectedTable?.number }}</span>
+      </div>
+      <div class="info-row" *ngIf="selectedTable?.activeOrder">
+        <span>Current Order:</span>
+        <span>{{ selectedTable?.activeOrder?.totalAmount?.toFixed(0) }} PKR</span>
+      </div>
+    </div>
+
+    <!-- New Items List -->
+    <div class="new-items-section">
+      <h3>New Items (To be sent to kitchen)</h3>
+      <div class="draft-items">
+        <div class="order-item draft" *ngFor="let item of draftCart">
+          <div class="item-info">
+            <div class="item-name">
+              {{ item.menuItemName }}
+              <span class="deal-badge-small" *ngIf="item.isDeal">⭐ DEAL</span>
+            </div>
+            <div class="item-notes" *ngIf="item.notes">📝 {{ item.notes }}</div>
+            <!-- Show deal contents -->
+            <div class="deal-contents" *ngIf="item.isDeal && item.dealItems">
+              <div class="deal-item-line" *ngFor="let dItem of item.dealItems">
+                • {{ dItem.quantity }}x {{ dItem.menuItemName }}
+              </div>
+            </div>
+          </div>
+          <div class="item-controls" *ngIf="!item.isDeal">
+            <input 
+              type="number" 
+              class="qty-input"
+              [(ngModel)]="item.quantity"
+              (ngModelChange)="updateDraftQuantity(item, item.quantity)"
+              step="0.1"
+              min="0.1"
+            />
+          </div>
+          <div class="item-controls" *ngIf="item.isDeal">
+            <span class="qty-display">{{ item.quantity }}</span>
+          </div>
+          <div class="item-price">{{ item.totalPrice.toFixed(0) }} PKR</div>
+          <button class="btn-remove" (click)="removeDraftItem(item)">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Totals -->
+    <div class="totals-section">
+      <div class="total-row" *ngIf="selectedTable?.activeOrder">
+        <span>Current Order:</span>
+        <span>{{ selectedTable?.activeOrder?.totalAmount?.toFixed(0) }} PKR</span>
+      </div>
+      <div class="total-row">
+        <span>New Items:</span>
+        <span>{{ getDraftSubtotal().toFixed(0) }} PKR</span>
+      </div>
+      <div class="total-row grand-total">
+        <span>Grand Total:</span>
+        <span>{{ getTotalOrderAmount().toFixed(0) }} PKR</span>
+      </div>
+    </div>
+
+    <!-- Confirm Button -->
+    <div class="confirm-section">
+      <button 
+        class="btn-confirm" 
+        (click)="confirmAndSendToKitchen()"
+        [disabled]="isLoading">
+        {{ isLoading ? 'Sending...' : '🍳 Confirm & Send to Kitchen' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- ITEM MODIFIER MODAL -->
+  <div class="modal-overlay" *ngIf="showItemModifier" (click)="closeItemModifier()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ selectedMenuItem?.name }}</h3>
+        <button class="close-btn" (click)="closeItemModifier()">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Price -->
+        <div class="item-price-display">
+          {{ selectedMenuItem?.price?.toFixed(0) }} PKR
+          <span *ngIf="selectedMenuItem?.soldByWeight">/ {{ selectedMenuItem?.unit || 'kg' }}</span>
+        </div>
+
+        <!-- Quantity Stepper -->
+        <div class="quantity-section">
+          <label>Quantity:</label>
+          <div class="quantity-stepper">
+            <button (click)="modifierQuantity = Math.max(0.1, modifierQuantity - (selectedMenuItem?.soldByWeight ? 0.1 : 1)); formatQuantity(modifierQuantity)">−</button>
+            <input 
+              type="number" 
+              [(ngModel)]="modifierQuantity"
+              (ngModelChange)="formatQuantity($event)"
+              [step]="selectedMenuItem?.soldByWeight ? 0.1 : 1"
+              min="0.1"
+            />
+            <button (click)="modifierQuantity = modifierQuantity + (selectedMenuItem?.soldByWeight ? 0.1 : 1); formatQuantity(modifierQuantity)">+</button>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="notes-section">
+          <label>Special Instructions (Optional):</label>
+          <textarea 
+            [(ngModel)]="modifierNotes"
+            placeholder="e.g., Extra spicy, No onions..."
+            rows="3"></textarea>
+        </div>
+
+        <!-- Total Price -->
+        <div class="modal-total">
+          <span>Total:</span>
+          <span>{{ (modifierQuantity * (selectedMenuItem?.price || 0)).toFixed(0) }} PKR</span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeItemModifier()">Cancel</button>
+        <button class="btn-add" (click)="addItemToCart()">Add to Cart</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <div>Processing...</div>
+  </div>
+</div>

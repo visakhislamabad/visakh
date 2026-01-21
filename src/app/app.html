@@ -1,0 +1,40 @@
+<div class="app-container">
+  <!-- Navigation Bar -->
+  <nav class="navbar" *ngIf="showNav && authService.isLoggedIn()">
+    <div class="nav-brand">
+      <h2>🍽️ Visakh</h2>
+    </div>
+    
+    <div class="nav-links">
+      <!-- Admin Only Links -->
+      <ng-container *ngIf="authService.hasRole('admin')">
+        <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+        <a routerLink="/menu" routerLinkActive="active">Menu</a>
+        <a routerLink="/deals" routerLinkActive="active">Deals</a>
+        <a routerLink="/inventory" routerLinkActive="active">Inventory</a>
+        <a routerLink="/users" routerLinkActive="active">Users</a>
+        <a routerLink="/reports" routerLinkActive="active">Reports</a>
+        <a routerLink="/waiter" routerLinkActive="active">Waiter</a>
+      </ng-container>
+      
+      <!-- Cashier Access -->
+      <a routerLink="/pos" routerLinkActive="active" *ngIf="authService.hasRole('cashier') || authService.hasRole('admin')">POS</a>
+      
+      <!-- Chef Access -->
+      <a routerLink="/kitchen" routerLinkActive="active" *ngIf="authService.hasRole('chef') || authService.hasRole('admin')">Kitchen</a>
+      
+      <!-- Waiter Access (optional direct link for waiter role) -->
+      <a routerLink="/waiter" routerLinkActive="active" *ngIf="authService.hasRole('waiter')">Waiter</a>
+    </div>
+    
+    <div class="nav-user">
+      <span class="user-name">{{ authService.currentUser?.name }}</span>
+      <button class="btn-logout" (click)="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content" [class.with-nav]="showNav && authService.isLoggedIn()">
+    <router-outlet></router-outlet>
+  </main>
+</div>

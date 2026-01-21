@@ -1,0 +1,172 @@
+<div class="pos-container">
+  <div class="left-panel">
+    <h2>Menu</h2>
+    
+    <!-- Category Filter -->
+    <div class="category-tabs">
+      <button 
+        *ngFor="let cat of categories" 
+        [class.active]="selectedCategory === cat"
+        (click)="selectedCategory = cat; onCategoryChange()"
+        class="category-tab"
+      >
+        {{ cat === 'all' ? 'All' : cat }}
+      </button>
+    </div>
+
+    <!-- Search -->
+    <div class="search-box">
+      <input 
+        type="text" 
+        [(ngModel)]="searchText" 
+        (input)="onSearchChange()" 
+        placeholder="🔍 Search menu items..."
+      />
+    </div>
+
+    <!-- Menu Items Grid -->
+    <div class="menu-grid">
+      <div 
+        *ngFor="let item of filteredMenuItems" 
+        class="menu-item-card"
+        (click)="addToCart(item)"
+      >
+        <div class="item-name">{{ item.name }}</div>
+        <div class="item-price">{{ item.price.toFixed(0) }}</div>
+        <div class="item-category">{{ item.category }}</div>
+      </div>
+      
+      <div *ngIf="filteredMenuItems.length === 0" class="no-items">
+        No items found
+      </div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <h2>Current Order</h2>
+
+    <!-- Order Details -->
+    <div class="order-details">
+      <div class="detail-row">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="isTakeaway" />
+          Takeaway
+        </label>
+      </div>
+
+      <div class="detail-row" *ngIf="!isTakeaway">
+        <label>Table Number:</label>
+        <div class="table-selector">
+          <select [(ngModel)]="tableNumber" class="table-dropdown">
+            <option [ngValue]="''" disabled>Select table</option>
+            <option *ngFor="let t of availableTables" [ngValue]="t">Table {{ t }}</option>
+          </select>
+          <button class="refresh-availability-btn" (click)="loadAvailableTables()" title="Refresh available tables">
+            ↻
+          </button>
+        </div>
+        <span *ngIf="availableTables.length === 0" class="empty">No tables available</span>
+      </div>
+
+      <div class="detail-row">
+        <label>Customer Name (Optional):</label>
+        <input type="text" [(ngModel)]="customerName" placeholder="Customer name" />
+      </div>
+    </div>
+
+    <!-- Cart Items -->
+    <div class="cart-items">
+      <div *ngFor="let item of cart" class="cart-item">
+        <div class="item-info">
+          <div class="item-name">{{ item.menuItemName }}</div>
+          <div class="item-price">{{ item.price.toFixed(0) }}</div>
+        </div>
+        <div class="item-controls">
+          <button class="qty-btn" (click)="decreaseQuantity(item)">-</button>
+          <span class="quantity">{{ item.quantity }}</span>
+          <button class="qty-btn" (click)="increaseQuantity(item)">+</button>
+          <span class="item-total">{{ item.totalPrice.toFixed(0) }}</span>
+          <button class="remove-btn" (click)="removeFromCart(item)">×</button>
+        </div>
+      </div>
+
+      <div *ngIf="cart.length === 0" class="empty-cart">
+        Cart is empty. Add items from the menu.
+      </div>
+    </div>
+
+    <!-- Payment Section -->
+    <div class="payment-section">
+      <div class="payment-row">
+        <span>Subtotal:</span>
+        <span>{{ getSubtotal().toFixed(0) }}</span>
+      </div>
+      <div class="payment-row">
+        <span>Tax:</span>
+        <span>{{ getTax().toFixed(0) }}</span>
+      </div>
+      <div class="payment-row">
+        <span>Discount:</span>
+        <input 
+          type="number" 
+          [(ngModel)]="discount" 
+          min="0" 
+          step="0.01" 
+          class="discount-input"
+        />
+      </div>
+      <div class="payment-row total">
+        <span>Total:</span>
+        <span>{{ getTotal().toFixed(0) }}</span>
+      </div>
+      <!-- POS Action Buttons moved above Bill Requests -->
+      <div class="action-buttons">
+        <button class="btn btn-secondary" (click)="cancelOrder()" [disabled]="cart.length === 0">Cancel</button>
+        <button class="btn btn-info" (click)="printKOT()" [disabled]="cart.length === 0 || isLoading">Print KOT</button>
+        <button class="btn btn-primary" (click)="payAndPrint()" [disabled]="cart.length === 0 || isLoading">Pay & Print Bill</button>
+      </div>
+    </div>
+
+    <!-- Bill Requests (Waiter -> Cashier) -->
+    <div class="bill-requests">
+      <div class="bill-requests-header">
+        <h2>Bill Requests</h2>
+        <div class="header-actions">
+          <button class="refresh-btn" (click)="loadReadyOrders()" [disabled]="isRefreshing">
+            <span class="mini-spinner" *ngIf="isRefreshing"></span>
+            <span>↻ Refresh</span>
+          </button>
+          <button class="sound-toggle" (click)="toggleSound()">🔔 {{ soundEnabled ? 'Sound On' : 'Sound Off' }}</button>
+        </div>
+      </div>
+      <div *ngIf="readyOrders.length === 0" class="empty">No bill requests</div>
+      <div *ngFor="let o of readyOrders" class="bill-request-item" [class.blink]="isNewRequest(o.id)">
+        <div class="info">
+          <span class="table">{{ o.isTakeaway ? 'Takeaway' : ('Table ' + o.tableNumber) }}</span>
+          <span class="amount">{{ o.totalAmount.toFixed(0) }} PKR</span>
+          <span class="ago">({{ timeSince(o.createdAt) }})</span>
+        </div>
+        <div class="actions">
+          <button (click)="openSettlement(o)">Open Settlement</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settlement Panel -->
+    <div class="settlement-panel" *ngIf="selectedBillOrder">
+      <button class="panel-close" (click)="cancelSettlement()" aria-label="Close">×</button>
+      <h2>Payment & Settlement</h2>
+      <div class="summary">
+        <div>Table: {{ selectedBillOrder.tableNumber }}</div>
+        <div>Total Due: {{ getSelectedBillTotal().toFixed(0) }} PKR</div>
+      </div>
+
+      <div class="settlement-actions">
+        <button class="details" (click)="viewSelectedBillDetail()">View Order Detail</button>
+        <button class="complete" (click)="completeSettlement()" [disabled]="isLoading">Complete Payment</button>
+      </div>
+    </div>
+
+    
+  </div>
+</div>

@@ -1,0 +1,211 @@
+.kitchen-container {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 32px;
+  color: #333;
+  margin: 0 0 5px 0;
+}
+
+.subtitle {
+  color: #666;
+  margin: 0 0 30px 0;
+}
+
+.orders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.order-card {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-left: 5px solid #ff9800;
+  transition: all 0.3s;
+}
+
+.order-card.cooking {
+  border-left-color: #2196f3;
+  background: #e3f2fd;
+}
+
+.order-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #eee;
+}
+
+.order-info h3 {
+  margin: 0 0 5px 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.order-number {
+  font-size: 12px;
+  color: #999;
+  font-family: monospace;
+}
+
+.order-time {
+  background: #ff9800;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.order-time.urgent {
+  background: #f44336;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.order-items {
+  margin-bottom: 15px;
+}
+
+.order-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.order-item:last-child {
+  border-bottom: none;
+}
+
+.item-qty {
+  background: #667eea;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 12px;
+  min-width: 35px;
+  text-align: center;
+}
+
+.item-name {
+  font-size: 15px;
+  color: #333;
+  font-weight: 500;
+}
+
+.order-customer {
+  background: #f5f5f5;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+  margin-bottom: 15px;
+  color: #666;
+}
+
+.order-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-start {
+  background: #ff9800;
+  color: white;
+}
+
+.btn-start:hover {
+  background: #f57c00;
+}
+
+.btn-ready {
+  background: #4caf50;
+  color: white;
+}
+
+.btn-ready:hover {
+  background: #45a049;
+}
+
+.btn-complete {
+  background: #667eea;
+  color: white;
+}
+
+.btn-complete:hover {
+  background: #5568d3;
+}
+
+.ready-section {
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 3px solid #e0e0e0;
+}
+
+.ready-section h2 {
+  font-size: 28px;
+  color: #333;
+  margin: 0 0 5px 0;
+}
+
+.ready-card {
+  border-left-color: #4caf50;
+  background: #f1f8f4;
+}
+
+.ready-badge {
+  background: #4caf50;
+}
+
+.no-orders {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 10px;
+}
+
+.no-orders-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.no-orders p {
+  font-size: 20px;
+  color: #333;
+  margin: 0 0 10px 0;
+}
+
+.no-orders small {
+  color: #999;
+  font-size: 14px;
+}

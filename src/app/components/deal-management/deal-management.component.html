@@ -1,0 +1,188 @@
+<div class="container">
+  <div class="header">
+    <h1>Deals & Combos Management</h1>
+    <button class="btn btn-primary" (click)="openAddModal()">+ Create Deal</button>
+  </div>
+
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Deal Name</th>
+        <th>Items</th>
+        <th>Original Price</th>
+        <th>Deal Price</th>
+        <th>Savings</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let deal of deals">
+        <td>
+          <strong>{{ deal.name }}</strong>
+          <div class="deal-desc" *ngIf="deal.description">{{ deal.description }}</div>
+        </td>
+        <td>
+          <div class="deal-items">
+            <div *ngFor="let item of deal.items" class="deal-item-line">
+              {{ item.quantity }}x {{ item.menuItemName }}
+            </div>
+          </div>
+        </td>
+        <td>{{ deal.originalPrice.toFixed(0) }} PKR</td>
+        <td><strong class="deal-price">{{ deal.dealPrice.toFixed(0) }} PKR</strong></td>
+        <td>
+          <span class="savings-badge">
+            Save {{ deal.savings.toFixed(0) }} PKR ({{ deal.savingsPercent.toFixed(0) }}%)
+          </span>
+        </td>
+        <td>
+          <span class="status-badge" [class.active]="deal.isActive" [class.inactive]="!deal.isActive">
+            {{ deal.isActive ? 'Active' : 'Inactive' }}
+          </span>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-info" (click)="openEditModal(deal)">Edit</button>
+          <button class="btn btn-sm" (click)="toggleActive(deal)">
+            {{ deal.isActive ? 'Deactivate' : 'Activate' }}
+          </button>
+          <button class="btn btn-sm btn-danger" (click)="deleteDeal(deal)">Delete</button>
+        </td>
+      </tr>
+      <tr *ngIf="deals.length === 0">
+        <td colspan="7" class="no-data">No deals found. Create your first deal!</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Add/Edit Deal Modal -->
+  <div class="modal" *ngIf="showDealModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>{{ isEditMode ? 'Edit Deal' : 'Create New Deal' }}</h2>
+        <button class="close-btn" (click)="showDealModal = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="deal-form">
+          <div class="form-section">
+            <h3>Deal Information</h3>
+            <div class="form-group">
+              <label>Deal Name *</label>
+              <input type="text" [(ngModel)]="currentDeal.name" placeholder="e.g., Family Feast" />
+            </div>
+            <div class="form-group">
+              <label>Description (Optional)</label>
+              <textarea [(ngModel)]="currentDeal.description" placeholder="Brief description of the deal" rows="2"></textarea>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Add Items to Deal</h3>
+            <div class="item-picker">
+              <div class="form-group">
+                <label>Filter by Category</label>
+                <select [(ngModel)]="selectedItemCategory">
+                  <option *ngFor="let cat of itemCategories" [ngValue]="cat">{{ cat }}</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Select Item</label>
+                  <select [(ngModel)]="selectedMenuItemId">
+                    <option [ngValue]="''">Choose an item</option>
+                    <option *ngFor="let item of filteredMenuItems" [ngValue]="item.id">
+                      {{ item.name }} ({{ item.price.toFixed(0) }} PKR)
+                    </option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Quantity</label>
+                  <input type="number" [(ngModel)]="itemQuantity" min="1" step="1" />
+                </div>
+                <div class="form-group">
+                  <label>&nbsp;</label>
+                  <button class="btn btn-secondary" (click)="addItemToDeal()">+ Add Item</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="deal-items-list" *ngIf="currentDeal.items.length > 0">
+              <h4>Items in Deal:</h4>
+              <table class="items-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th>Unit Price</th>
+                    <th>Subtotal</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of currentDeal.items">
+                    <td>{{ item.menuItemName }}</td>
+                    <td>
+                      <input 
+                        type="number" 
+                        [(ngModel)]="item.quantity" 
+                        (ngModelChange)="updateItemQuantity(item, item.quantity)"
+                        min="1" 
+                        class="qty-input"
+                      />
+                    </td>
+                    <td>{{ item.standardPrice.toFixed(0) }} PKR</td>
+                    <td>{{ (item.quantity * item.standardPrice).toFixed(0) }} PKR</td>
+                    <td>
+                      <button class="btn btn-sm btn-danger" (click)="removeItemFromDeal(item)">Remove</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="form-section pricing-section">
+            <h3>Pricing</h3>
+            <div class="pricing-display">
+              <div class="price-row">
+                <span class="price-label">Total Original Price:</span>
+                <span class="price-value original">{{ currentDeal.originalPrice.toFixed(0) }} PKR</span>
+              </div>
+              <div class="form-group">
+                <label>Set Deal Price * (Promotional Price)</label>
+                <input 
+                  type="number" 
+                  [(ngModel)]="currentDeal.dealPrice" 
+                  (ngModelChange)="onDealPriceChange()"
+                  min="0" 
+                  step="10" 
+                  placeholder="Enter deal price"
+                />
+              </div>
+              <div class="price-row savings" *ngIf="currentDeal.dealPrice > 0">
+                <span class="price-label">Customer Saves:</span>
+                <span class="price-value savings-amt">
+                  {{ currentDeal.savings.toFixed(0) }} PKR 
+                  ({{ currentDeal.savingsPercent.toFixed(1) }}%)
+                </span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="currentDeal.isActive" />
+                Active (visible to waiters and cashiers)
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="showDealModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="saveDeal()">
+          {{ isEditMode ? 'Update Deal' : 'Create Deal' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
