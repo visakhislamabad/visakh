@@ -4,26 +4,26 @@
     <meta charset="utf-8" />
     <title>Redirecting...</title>
     <script type="text/javascript">
-      // Redirect to index.html, preserving the attempted path as a query parameter
-      // so Angular Router can handle the navigation client-side
+      // Store the attempted path in sessionStorage so Angular can navigate to it
       var path = window.location.pathname.replace(/\/$/, "");
       var parts = path.split("/");
       
-      // Find the repo name (adjust if your repo name differs)
+      // Find the repo name index
       var repoIndex = parts.indexOf("visakh");
       
-      if (repoIndex !== -1) {
+      if (repoIndex !== -1 && parts.length > repoIndex + 1) {
         // Extract path after repo name (e.g., /login, /dashboard)
         var routePath = "/" + parts.slice(repoIndex + 1).join("/");
-        var hashPath = routePath.replace(/\/$/, "");
+        routePath = routePath.replace(/\/$/, "");
         
-        // Redirect to index.html with the route as a hash so Angular can handle it
-        window.location.replace(
-          window.location.pathname.split("/visakh")[0] + 
-          "/visakh/#" + 
-          hashPath
-        );
+        // Store the intended route in sessionStorage
+        sessionStorage.setItem("redirectPath", routePath);
       }
+      
+      // Redirect to index.html; Angular will pick up redirectPath from sessionStorage
+      window.location.replace(
+        window.location.pathname.split("/visakh")[0] + "/visakh/"
+      );
     </script>
   </head>
   <body></body>
