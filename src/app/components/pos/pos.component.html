@@ -40,6 +40,25 @@
         No items found
       </div>
     </div>
+
+    <!-- Deals Section -->
+    <div class="deals-section" *ngIf="activeDeals.length > 0">
+      <h3>💥 Special Deals</h3>
+      <div class="deals-grid">
+        <div 
+          *ngFor="let deal of activeDeals" 
+          class="deal-card"
+          (click)="addDealToCart(deal)"
+        >
+          <div class="deal-name">{{ deal.name }}</div>
+          <div class="deal-price">
+            <span class="deal-price-current">{{ deal.dealPrice.toFixed(0) }}</span>
+            <span class="deal-price-original">{{ deal.originalPrice.toFixed(0) }}</span>
+          </div>
+          <div class="deal-savings">Save {{ deal.savingsPercent.toFixed(0) }}%</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="right-panel">

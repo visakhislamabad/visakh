@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DatabaseService } from '../../services/database.service';
 import { AuthService } from '../../services/auth.service';
-import { MenuItem, OrderItem, Order, MenuCategory } from '../../models/models';
+import { MenuItem, OrderItem, Order, MenuCategory, Deal } from '../../models/models';
 
 @Component({
   selector: 'app-pos',
@@ -15,6 +15,8 @@ import { MenuItem, OrderItem, Order, MenuCategory } from '../../models/models';
 export class PosComponent implements OnInit {
   menuItems: MenuItem[] = [];
   filteredMenuItems: MenuItem[] = [];
+  deals: Deal[] = [];
+  activeDeals: Deal[] = [];
   cart: OrderItem[] = [];
   // Bill requests from waiter (orders marked 'ready')
   readyOrders: Order[] = [];
@@ -50,6 +52,7 @@ export class PosComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await this.loadMenuItems();
+    await this.loadDeals();
     await this.loadReadyOrders();
     await this.loadAvailableTables();
     this.initAudio();
@@ -71,6 +74,15 @@ export class PosComponent implements OnInit {
       console.error('Error loading menu items:', error);
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  async loadDeals(): Promise<void> {
+    try {
+      this.deals = await this.db.getActiveDeals();
+      this.activeDeals = this.deals;
+    } catch (error) {
+      console.error('Error loading deals:', error);
     }
   }
 
@@ -294,6 +306,26 @@ export class PosComponent implements OnInit {
           totalPrice: menuItem.price
         });
       }
+    }
+  }
+
+  addDealToCart(deal: Deal): void {
+    const existingDeal = this.cart.find(item => item.dealId === deal.id && item.isDeal);
+    
+    if (existingDeal) {
+      existingDeal.quantity++;
+      existingDeal.totalPrice = existingDeal.quantity * existingDeal.price;
+    } else {
+      this.cart.push({
+        menuItemId: deal.id!,
+        menuItemName: deal.name,
+        quantity: 1,
+        price: deal.dealPrice,
+        totalPrice: deal.dealPrice,
+        isDeal: true,
+        dealId: deal.id,
+        dealItems: deal.items
+      });
     }
   }
 
