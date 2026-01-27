@@ -138,10 +138,27 @@
         <span>Total:</span>
         <span>{{ getTotal().toFixed(0) }}</span>
       </div>
+      
+      <!-- Payment Method Selection -->
+      <div class="payment-method-section">
+        <label class="payment-method-label">Payment Method:</label>
+        <div class="payment-method-options">
+          <label class="payment-option">
+            <input type="radio" name="paymentMethod" value="cash" [(ngModel)]="paymentMethod" />
+            <span>💵 Cash</span>
+          </label>
+          <label class="payment-option">
+            <input type="radio" name="paymentMethod" value="bank_transfer" [(ngModel)]="paymentMethod" />
+            <span>🏦 Bank Transfer</span>
+          </label>
+        </div>
+      </div>
+      
       <!-- POS Action Buttons moved above Bill Requests -->
       <div class="action-buttons">
         <button class="btn btn-secondary" (click)="cancelOrder()" [disabled]="cart.length === 0">Cancel</button>
         <button class="btn btn-info" (click)="printKOT()" [disabled]="cart.length === 0 || isLoading">Print KOT</button>
+        <button class="btn btn-warning" (click)="openCreditCustomerSelectionForNewOrder()" [disabled]="cart.length === 0 || isLoading">Post to Account</button>
         <button class="btn btn-primary" (click)="payAndPrint()" [disabled]="cart.length === 0 || isLoading">Pay & Print Bill</button>
       </div>
     </div>
@@ -176,16 +193,142 @@
       <button class="panel-close" (click)="cancelSettlement()" aria-label="Close">×</button>
       <h2>Payment & Settlement</h2>
       <div class="summary">
-        <div>Table: {{ selectedBillOrder.tableNumber }}</div>
-        <div>Total Due: {{ getSelectedBillTotal().toFixed(0) }} PKR</div>
+        <div><strong>{{ selectedBillOrder.isTakeaway ? 'Takeaway' : ('Table: ' + selectedBillOrder.tableNumber) }}</strong></div>
+        <div>Order #: {{ selectedBillOrder.orderNumber }}</div>
+        <div class="summary-line">Subtotal: {{ selectedBillOrder.subtotal.toFixed(0) }} PKR</div>
+        <div class="summary-line">Tax: {{ selectedBillOrder.tax.toFixed(0) }} PKR</div>
+        <div class="summary-line" *ngIf="selectedBillOrder.discount > 0">
+          Discount: -{{ selectedBillOrder.discount.toFixed(0) }} PKR
+          <span class="discount-label" *ngIf="selectedBillOrder.discountType === 'percentage'">
+            ({{ selectedBillOrder.discountValue }}%)
+          </span>
+        </div>
+        <div class="summary-total">
+          <span>Total Due: {{ getSelectedBillTotal().toFixed(0) }} PKR</span>
+          <!-- Discount Editing (Admin Only) -->
+          <button class="btn-edit-discount" *ngIf="authService.hasRole('admin') && !isEditingDiscount" (click)="startEditingDiscount()">
+            ✏️ Edit Discount
+          </button>
+        </div>
       </div>
 
-      <div class="settlement-actions">
+      <div class="discount-edit-panel" *ngIf="isEditingDiscount">
+        <h3>Edit Discount</h3>
+        <div class="discount-type-toggle">
+          <label>
+            <input type="radio" name="discountType" value="fixed" [(ngModel)]="editDiscountType" />
+            Fixed Amount
+          </label>
+          <label>
+            <input type="radio" name="discountType" value="percentage" [(ngModel)]="editDiscountType" />
+            Percentage
+          </label>
+        </div>
+        
+        <div class="discount-value-input">
+          <label>
+            <span *ngIf="editDiscountType === 'fixed'">Discount Amount (PKR):</span>
+            <span *ngIf="editDiscountType === 'percentage'">Discount Percentage (%):</span>
+          </label>
+          <input 
+            type="number" 
+            [(ngModel)]="editDiscountValue" 
+            [min]="0" 
+            [max]="editDiscountType === 'percentage' ? 100 : 999999"
+            step="0.01"
+            class="discount-input"
+          />
+        </div>
+
+        <div class="discount-preview">
+          <div class="preview-line">Current Total: {{ getSelectedBillTotal().toFixed(0) }} PKR</div>
+          <div class="preview-line highlight">New Total: {{ getEditedBillTotal().toFixed(0) }} PKR</div>
+          <div class="preview-line savings">
+            You Save: {{ (getSelectedBillTotal() - getEditedBillTotal()).toFixed(0) }} PKR
+          </div>
+        </div>
+
+        <div class="discount-actions">
+          <button class="btn btn-secondary" (click)="cancelEditingDiscount()">Cancel</button>
+          <button class="btn btn-primary" (click)="applyDiscount()" [disabled]="isLoading">Apply Discount</button>
+        </div>
+      </div>
+
+      <!-- Payment Method Selection for Bill Settlement -->
+      <div class="payment-method-section" *ngIf="!isEditingDiscount">
+        <label class="payment-method-label">Payment Method:</label>
+        <div class="payment-method-options">
+          <label class="payment-option">
+            <input type="radio" name="settlementPaymentMethod" value="cash" [(ngModel)]="paymentMethod" />
+            <span>💵 Cash</span>
+          </label>
+          <label class="payment-option">
+            <input type="radio" name="settlementPaymentMethod" value="bank_transfer" [(ngModel)]="paymentMethod" />
+            <span>🏦 Bank Transfer</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settlement-actions" *ngIf="!isEditingDiscount">
         <button class="details" (click)="viewSelectedBillDetail()">View Order Detail</button>
+        <button class="post-to-account" (click)="openCreditCustomerSelection()" [disabled]="isLoading">
+          📝 Post to Account
+        </button>
         <button class="complete" (click)="completeSettlement()" [disabled]="isLoading">Complete Payment</button>
       </div>
     </div>
 
+    <!-- Credit Customer Selection Modal (Global) -->
+    <div class="credit-customer-modal" *ngIf="showCreditCustomerSelection" (click)="closeCreditCustomerSelection()">
+      <div class="credit-customer-panel" (click)="$event.stopPropagation()">
+        <button class="panel-close" (click)="closeCreditCustomerSelection()" aria-label="Close">×</button>
+        <h3>Select Credit Customer</h3>
+        
+        <!-- Search Box -->
+        <div class="customer-search">
+          <input 
+            type="text" 
+            [(ngModel)]="creditCustomerSearchText" 
+            (input)="filterCreditCustomers()"
+            placeholder="🔍 Search by name or phone..."
+            class="customer-search-input"
+          />
+        </div>
+
+        <div class="customer-list">
+          <div 
+            *ngFor="let customer of filteredCreditCustomers" 
+            class="customer-option"
+            [class.selected]="selectedCreditCustomer?.id === customer.id"
+            (click)="selectCreditCustomer(customer)"
+          >
+            <div class="customer-info">
+              <div class="customer-name">{{ customer.name }}</div>
+              <div class="customer-phone">{{ customer.phone }}</div>
+              <div class="customer-company" *ngIf="customer.companyName">{{ customer.companyName }}</div>
+            </div>
+            <div class="customer-credit">
+              <div class="credit-balance">Balance: {{ customer.currentBalance.toFixed(0) }} PKR</div>
+            </div>
+          </div>
+          <div *ngIf="filteredCreditCustomers.length === 0" class="empty">
+            No customers found
+          </div>
+        </div>
+        <div class="credit-actions">
+          <button class="btn btn-secondary" (click)="closeCreditCustomerSelection()" [disabled]="isLoading">
+            Cancel
+          </button>
+          <button 
+            class="btn btn-primary" 
+            (click)="postToAccount()" 
+            [disabled]="!selectedCreditCustomer || isLoading"
+          >
+            Post to Account
+          </button>
+        </div>
+      </div>
+    </div>
     
   </div>
 </div>

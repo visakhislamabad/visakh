@@ -82,7 +82,7 @@ h1 {
 
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 20px;
   margin-bottom: 30px;
 }
@@ -99,6 +99,18 @@ h1 {
 
 .summary-card.revenue {
   border-left: 4px solid #4caf50;
+}
+
+.summary-card.cash {
+  border-left: 4px solid #8bc34a;
+}
+
+.summary-card.bank {
+  border-left: 4px solid #2196f3;
+}
+
+.summary-card.credit {
+  border-left: 4px solid #9c27b0;
 }
 
 .summary-card.expenses {
@@ -133,6 +145,30 @@ h1 {
 .card-content small {
   color: #999;
   font-size: 12px;
+}
+
+/* Payment Method Badge */
+.payment-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.payment-badge.cash {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.payment-badge.bank {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.payment-badge.credit {
+  background: #f3e5f5;
+  color: #7b1fa2;
 }
 
 .tabs {
@@ -201,4 +237,27 @@ h1 {
   text-align: center;
   padding: 40px;
   color: #999;
+}
+
+.actions-col {
+  text-align: center;
+  width: 120px;
+}
+
+.btn-view-detail-text {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.btn-view-detail-text:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }

@@ -253,6 +253,7 @@ export class DatabaseService {
         discount: order.discount,
         totalAmount: order.totalAmount,
         status: order.status,
+        paymentMethod: order.paymentMethod || null,
         createdAt: order.createdAt ? Timestamp.fromDate(order.createdAt) : Timestamp.now(),
         cashierId: order.cashierId,
         cashierName: order.cashierName,
@@ -300,6 +301,14 @@ export class DatabaseService {
       });
     }
     return orders;
+  }
+
+  async getOrderByOrderNumber(orderNumber: string): Promise<Order | null> {
+    const ordersRef = collection(this.firestore, 'orders');
+    const q = query(ordersRef, where('orderNumber', '==', orderNumber));
+    const snapshot = await this.inCtx(() => getDocs(q));
+    if (snapshot.empty) return null;
+    return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Order;
   }
 
   async updateOrder(id: string, order: Partial<Order>): Promise<void> {
@@ -406,6 +415,18 @@ export class DatabaseService {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
   }
 
+  async getCustomerPaymentsByDateRange(startDate: Date, endDate: Date): Promise<any[]> {
+    const paymentsRef = collection(this.firestore, 'customerPayments');
+    const q = query(
+      paymentsRef,
+      where('date', '>=', Timestamp.fromDate(startDate)),
+      where('date', '<=', Timestamp.fromDate(endDate)),
+      orderBy('date', 'desc')
+    );
+    const snapshot = await this.inCtx(() => getDocs(q));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  }
+
   async getPurchasesByDateRange(startDate: Date, endDate: Date): Promise<Purchase[]> {
     const purchasesRef = collection(this.firestore, 'purchases');
     const q = query(
@@ -493,5 +514,210 @@ export class DatabaseService {
       const docRef = doc(this.firestore, `settings/${docId}`);
       await updateDoc(docRef, settings);
     }
+  }
+
+  // ============ CREDIT CUSTOMERS ============
+  async getCreditCustomers(): Promise<any[]> {
+    const customersRef = collection(this.firestore, 'creditCustomers');
+    const snapshot = await this.inCtx(() => getDocs(customersRef));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  }
+
+  async addCreditCustomer(customer: any): Promise<string> {
+    const customersRef = collection(this.firestore, 'creditCustomers');
+    const docRef = await addDoc(customersRef, {
+      ...customer,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
+    });
+    return docRef.id;
+  }
+
+  async updateCreditCustomer(customer: any): Promise<void> {
+    const customerDoc = doc(this.firestore, `creditCustomers/${customer.id}`);
+    await updateDoc(customerDoc, {
+      ...customer,
+      updatedAt: Timestamp.now()
+    });
+  }
+
+  async deleteCreditCustomer(id: string): Promise<void> {
+    const customerDoc = doc(this.firestore, `creditCustomers/${id}`);
+    await deleteDoc(customerDoc);
+  }
+
+  // ============ CUSTOMER LEDGER ============
+  async getCustomerLedger(customerId: string): Promise<any[]> {
+    const ledgerRef = collection(this.firestore, 'customerLedger');
+    const q = query(ledgerRef, where('customerId', '==', customerId));
+    const snapshot = await this.inCtx(() => getDocs(q));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  }
+
+  async addLedgerEntry(entry: any): Promise<string> {
+    const ledgerRef = collection(this.firestore, 'customerLedger');
+    const docRef = await addDoc(ledgerRef, {
+      ...entry,
+      createdAt: Timestamp.now()
+    });
+    return docRef.id;
+  }
+
+  // ============ CUSTOMER PAYMENTS ============
+  async recordCustomerPayment(payment: any): Promise<void> {
+    // Add ledger entry first so we can reference it from the payment record
+    const ledgerEntry = {
+      customerId: payment.customerId,
+      customerName: payment.customerName,
+      date: payment.date,
+      referenceType: 'payment',
+      referenceNumber: `PAY-${Date.now()}`,
+      debit: 0,
+      credit: payment.amount,
+      runningBalance: 0, // Will be calculated
+      notes: payment.notes || `Payment via ${payment.paymentMode}`
+    };
+    const ledgerId = await this.addLedgerEntry(ledgerEntry);
+
+    // Add payment record with reference to ledger entry
+    const paymentsRef = collection(this.firestore, 'customerPayments');
+    await addDoc(paymentsRef, {
+      ...payment,
+      createdAt: Timestamp.now(),
+      ledgerId
+    });
+
+    // Update customer balance
+    const customerDoc = doc(this.firestore, `creditCustomers/${payment.customerId}`);
+    const customerSnap = await this.inCtx(() => getDoc(customerDoc));
+    if (customerSnap.exists()) {
+      const currentBalance = customerSnap.data()['currentBalance'] || 0;
+      await updateDoc(customerDoc, {
+        currentBalance: currentBalance - payment.amount,
+        updatedAt: Timestamp.now()
+      });
+    }
+  }
+
+  async deleteCustomerPayment(paymentId: string): Promise<void> {
+    const paymentDocRef = doc(this.firestore, `customerPayments/${paymentId}`);
+    const snap = await this.inCtx(() => getDoc(paymentDocRef));
+    if (!snap.exists()) return;
+    const payment = snap.data() as any;
+
+    // Reverse customer balance effect
+    if (payment.customerId && payment.amount) {
+      const customerDocRef = doc(this.firestore, `creditCustomers/${payment.customerId}`);
+      const customerSnap = await this.inCtx(() => getDoc(customerDocRef));
+      if (customerSnap.exists()) {
+        const currentBalance = customerSnap.data()['currentBalance'] || 0;
+        await updateDoc(customerDocRef, {
+          currentBalance: currentBalance + payment.amount,
+          updatedAt: Timestamp.now()
+        });
+      }
+    }
+
+    // Delete linked ledger entry if available
+    if (payment.ledgerId) {
+      const ledgerDocRef = doc(this.firestore, `customerLedger/${payment.ledgerId}`);
+      try {
+        await deleteDoc(ledgerDocRef);
+      } catch {}
+    }
+
+    // Finally, delete the payment record
+    await deleteDoc(paymentDocRef);
+  }
+
+  async getRecentCustomerPayments(limitCount: number): Promise<any[]> {
+    const paymentsRef = collection(this.firestore, 'customerPayments');
+    const q = query(paymentsRef, orderBy('date', 'desc'), limit(limitCount));
+    const snapshot = await this.inCtx(() => getDocs(q));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  }
+
+  // ============ POST BILL TO ACCOUNT ============
+  async postBillToAccount(order: any, customerId: string): Promise<void> {
+    // Add ledger entry for the sale
+    const ledgerEntry = {
+      customerId: customerId,
+      customerName: order.customerName || 'N/A',
+      date: order.createdAt,
+      referenceType: 'sale',
+      referenceNumber: order.orderNumber,
+      debit: order.totalAmount,
+      credit: 0,
+      runningBalance: 0, // Will be calculated
+      notes: order.isTakeaway ? 'Takeaway Order' : `Table ${order.tableNumber}`
+    };
+    await this.addLedgerEntry(ledgerEntry);
+
+    // Update customer balance
+    const customerDoc = doc(this.firestore, `creditCustomers/${customerId}`);
+    const customerSnap = await this.inCtx(() => getDoc(customerDoc));
+    if (customerSnap.exists()) {
+      const currentBalance = customerSnap.data()['currentBalance'] || 0;
+      await updateDoc(customerDoc, {
+        currentBalance: currentBalance + order.totalAmount,
+        updatedAt: Timestamp.now()
+      });
+    }
+  }
+
+  // ============ AGING REPORT ============
+  async getAgingReport(): Promise<any[]> {
+    const customers = await this.getCreditCustomers();
+    const now = new Date();
+    const agingReport: any[] = [];
+
+    for (const customer of customers) {
+      if (customer.currentBalance > 0) {
+        const ledger = await this.getCustomerLedger(customer.id);
+        const salesEntries = ledger.filter((e: any) => e.referenceType === 'sale');
+        
+        let current = 0;
+        let overdue = 0;
+        let critical = 0;
+        let oldestDebtDate: Date | undefined = undefined;
+        let lastPaymentDate: Date | undefined = undefined;
+
+        const paymentEntries = ledger.filter((e: any) => e.referenceType === 'payment');
+        if (paymentEntries.length > 0) {
+          lastPaymentDate = paymentEntries[0].date;
+        }
+
+        for (const sale of salesEntries) {
+          const saleDate = sale.date instanceof Date ? sale.date : sale.date.toDate();
+          const daysSince = Math.floor((now.getTime() - saleDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (!oldestDebtDate || saleDate < oldestDebtDate) {
+            oldestDebtDate = saleDate;
+          }
+
+          if (daysSince <= 15) {
+            current += sale.debit;
+          } else if (daysSince <= 30) {
+            overdue += sale.debit;
+          } else {
+            critical += sale.debit;
+          }
+        }
+
+        agingReport.push({
+          customerId: customer.id,
+          customerName: customer.name,
+          phone: customer.phone,
+          totalBalance: customer.currentBalance,
+          current,
+          overdue,
+          critical,
+          lastPaymentDate,
+          oldestDebtDate
+        });
+      }
+    }
+
+    return agingReport;
   }
 }

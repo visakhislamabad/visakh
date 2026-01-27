@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DatabaseService } from '../../services/database.service';
 import { AuthService } from '../../services/auth.service';
-import { MenuItem, OrderItem, Order, MenuCategory, Deal } from '../../models/models';
+import { MenuItem, OrderItem, Order, MenuCategory, Deal, DiscountType, CreditCustomer } from '../../models/models';
 
 @Component({
   selector: 'app-pos',
@@ -21,7 +21,7 @@ export class PosComponent implements OnInit {
   // Bill requests from waiter (orders marked 'ready')
   readyOrders: Order[] = [];
   selectedBillOrder: Order | null = null;
-  paymentMethod: 'cash' | 'card' | 'wallet' | 'split' = 'cash';
+  paymentMethod: 'cash' | 'bank_transfer' = 'cash'; // Payment method selection
   tenderedAmount: number = 0;
   refreshTimer?: any;
   private previousReadyIds: Set<string> = new Set();
@@ -29,6 +29,17 @@ export class PosComponent implements OnInit {
   soundEnabled: boolean = true;
   private audioChime?: HTMLAudioElement;
   isRefreshing: boolean = false;
+  // Discount editing for bill settlements
+  isEditingDiscount: boolean = false;
+  editDiscountType: DiscountType = 'fixed';
+  editDiscountValue: number = 0;
+  
+  // Credit customer selection
+  creditCustomers: CreditCustomer[] = [];
+  selectedCreditCustomer: CreditCustomer | null = null;
+  showCreditCustomerSelection: boolean = false;
+  creditCustomerSearchText: string = '';
+  filteredCreditCustomers: CreditCustomer[] = [];
   
   // Order details
   tableNumber: string = '';
@@ -55,6 +66,7 @@ export class PosComponent implements OnInit {
     await this.loadDeals();
     await this.loadReadyOrders();
     await this.loadAvailableTables();
+    await this.loadCreditCustomers();
     this.initAudio();
     // restore sound preference
     const stored = localStorage.getItem('posSoundEnabled');
@@ -225,6 +237,81 @@ export class PosComponent implements OnInit {
     }
   }
 
+  startEditingDiscount(): void {
+    if (!this.selectedBillOrder) return;
+    this.isEditingDiscount = true;
+    // Initialize with current discount values
+    this.editDiscountType = this.selectedBillOrder.discountType || 'fixed';
+    this.editDiscountValue = this.selectedBillOrder.discountValue || 0;
+  }
+
+  cancelEditingDiscount(): void {
+    this.isEditingDiscount = false;
+    this.editDiscountValue = 0;
+  }
+
+  calculateDiscountAmount(subtotal: number, discountType: DiscountType, discountValue: number): number {
+    if (discountType === 'percentage') {
+      return (subtotal * discountValue) / 100;
+    }
+    return discountValue;
+  }
+
+  getEditedBillTotal(): number {
+    if (!this.selectedBillOrder) return 0;
+    const subtotal = this.selectedBillOrder.subtotal;
+    const tax = this.selectedBillOrder.tax;
+    const discountAmount = this.calculateDiscountAmount(subtotal, this.editDiscountType, this.editDiscountValue);
+    return subtotal + tax - discountAmount;
+  }
+
+  async applyDiscount(): Promise<void> {
+    if (!this.selectedBillOrder?.id) return;
+    
+    // Validate discount value
+    if (this.editDiscountValue < 0) {
+      alert('❌ Discount cannot be negative');
+      return;
+    }
+
+    if (this.editDiscountType === 'percentage' && this.editDiscountValue > 100) {
+      alert('❌ Percentage discount cannot exceed 100%');
+      return;
+    }
+
+    this.isLoading = true;
+    try {
+      const subtotal = this.selectedBillOrder.subtotal;
+      const discountAmount = this.calculateDiscountAmount(subtotal, this.editDiscountType, this.editDiscountValue);
+      const newTotal = this.getEditedBillTotal();
+
+      // Update order with new discount
+      await this.db.updateOrder(this.selectedBillOrder.id, {
+        discount: discountAmount,
+        discountType: this.editDiscountType,
+        discountValue: this.editDiscountValue,
+        totalAmount: newTotal
+      });
+
+      // Update local order object
+      this.selectedBillOrder.discount = discountAmount;
+      this.selectedBillOrder.discountType = this.editDiscountType;
+      this.selectedBillOrder.discountValue = this.editDiscountValue;
+      this.selectedBillOrder.totalAmount = newTotal;
+
+      // Reload orders to sync
+      await this.loadReadyOrders();
+      
+      this.isEditingDiscount = false;
+      alert('✅ Discount applied successfully');
+    } catch (error) {
+      console.error('Error applying discount:', error);
+      alert('❌ Failed to apply discount');
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
   async completeSettlement(): Promise<void> {
     if (!this.selectedBillOrder?.id) return;
     this.isLoading = true;
@@ -232,13 +319,19 @@ export class PosComponent implements OnInit {
       // Deduct inventory for order items
       await this.deductInventoryForOrder(this.selectedBillOrder);
       
-      // Mark order completed
-      await this.db.updateOrder(this.selectedBillOrder.id, { status: 'completed' });
+      // Mark order completed with payment method
+      await this.db.updateOrder(this.selectedBillOrder.id, { 
+        status: 'completed',
+        paymentMethod: this.paymentMethod,
+        completedAt: new Date()
+      });
       
       // Refresh lists and clear selection
       await this.loadReadyOrders();
       this.selectedBillOrder = null;
       this.tenderedAmount = 0;
+      this.paymentMethod = 'cash'; // Reset to default
+      this.isEditingDiscount = false;
       alert('✅ Payment completed. Table reset to free.');
     } catch (error) {
       console.error('Error completing settlement:', error);
@@ -428,13 +521,15 @@ export class PosComponent implements OnInit {
     this.isLoading = true;
     try {
       const order = this.createOrder('completed');
+      order.paymentMethod = this.paymentMethod; // Add payment method
       await this.db.createOrder(order);
       
       // Deduct prepared items from inventory if linked
       await this.deductPreparedItems();
       
-      alert(`Payment successful! Total: $${this.getTotal().toFixed(2)}`);
+      alert(`Payment successful! Total: ${this.getTotal().toFixed(0)} PKR\nPayment: ${this.paymentMethod === 'cash' ? 'Cash' : 'Bank Transfer'}`);
       this.clearCart();
+      this.paymentMethod = 'cash'; // Reset to default
     } catch (error) {
       console.error('Error processing payment:', error);
       alert('Error processing payment');
@@ -573,6 +668,8 @@ export class PosComponent implements OnInit {
       subtotal: this.getSubtotal(),
       tax: this.getTax(),
       discount: this.discount,
+      discountType: this.discount > 0 ? 'fixed' : undefined,
+      discountValue: this.discount > 0 ? this.discount : undefined,
       totalAmount: this.getTotal(),
       status,
       createdAt: new Date(),
@@ -592,6 +689,113 @@ export class PosComponent implements OnInit {
   cancelOrder(): void {
     if (confirm('Are you sure you want to cancel this order?')) {
       this.clearCart();
+    }
+  }
+
+  // ============ CREDIT CUSTOMER METHODS ============
+  
+  async loadCreditCustomers(): Promise<void> {
+    try {
+      const customers = await this.db.getCreditCustomers();
+      // Only load active customers with credit enabled
+      this.creditCustomers = customers.filter((c: CreditCustomer) => c.isCreditEnabled);
+      this.filteredCreditCustomers = [...this.creditCustomers];
+    } catch (error) {
+      console.error('Error loading credit customers:', error);
+    }
+  }
+
+  filterCreditCustomers(): void {
+    const search = this.creditCustomerSearchText.toLowerCase().trim();
+    if (!search) {
+      this.filteredCreditCustomers = [...this.creditCustomers];
+      return;
+    }
+    this.filteredCreditCustomers = this.creditCustomers.filter(customer => 
+      customer.name.toLowerCase().includes(search) ||
+      customer.phone.toLowerCase().includes(search) ||
+      (customer.companyName && customer.companyName.toLowerCase().includes(search))
+    );
+  }
+
+  openCreditCustomerSelectionForNewOrder(): void {
+    this.showCreditCustomerSelection = true;
+    this.selectedCreditCustomer = null;
+    this.selectedBillOrder = null; // Clear bill order to indicate new order
+  }
+
+  openCreditCustomerSelection(): void {
+    this.showCreditCustomerSelection = true;
+    this.selectedCreditCustomer = null;
+  }
+
+  closeCreditCustomerSelection(): void {
+    this.showCreditCustomerSelection = false;
+    this.selectedCreditCustomer = null;
+    this.creditCustomerSearchText = '';
+    this.filteredCreditCustomers = [...this.creditCustomers];
+  }
+
+  selectCreditCustomer(customer: CreditCustomer): void {
+    this.selectedCreditCustomer = customer;
+  }
+
+  async postToAccount(): Promise<void> {
+    if (!this.selectedCreditCustomer) {
+      alert('Please select a customer');
+      return;
+    }
+
+    this.isLoading = true;
+    try {
+      // Handle existing bill order (from bill requests)
+      if (this.selectedBillOrder) {
+        const billTotal = this.getSelectedBillTotal();
+        
+        // Mark order as completed and set payment method as credit account
+        await this.db.updateOrder(this.selectedBillOrder.id!, {
+          status: 'completed',
+          paymentMethod: 'credit_account',
+          completedAt: new Date()
+        });
+
+        // Post bill to customer account
+        await this.db.postBillToAccount(this.selectedBillOrder, this.selectedCreditCustomer.id!);
+
+        alert(`Bill posted to ${this.selectedCreditCustomer.name}'s account.\nAmount: ${billTotal.toFixed(0)} PKR`);
+        
+        this.closeCreditCustomerSelection();
+        this.cancelSettlement();
+        await this.loadReadyOrders();
+      } 
+      // Handle new order from cart
+      else if (this.cart.length > 0) {
+        const order = this.createOrder('completed');
+        order.customerName = this.selectedCreditCustomer.name;
+        order.paymentMethod = 'credit_account'; // Mark as credit account transaction
+        
+        // Create the order
+        const orderId = await this.db.createOrder(order);
+        order.id = orderId;
+
+        // Deduct inventory
+        await this.deductInventoryForOrder(order);
+
+        // Post to customer account
+        await this.db.postBillToAccount(order, this.selectedCreditCustomer.id!);
+
+        alert(`Order posted to ${this.selectedCreditCustomer.name}'s account.\nAmount: ${order.totalAmount.toFixed(0)} PKR`);
+        
+        this.clearCart();
+        this.closeCreditCustomerSelection();
+      }
+      
+      await this.loadCreditCustomers(); // Refresh customer balances
+    } catch (error) {
+      console.error('Error posting to account:', error);
+      alert('Failed to post bill to account');
+    } finally {
+      this.isLoading = false;
     }
   }
 }

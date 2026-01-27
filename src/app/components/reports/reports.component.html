@@ -24,15 +24,55 @@
       <div class="card-icon">💰</div>
       <div class="card-content">
         <h3>Total Revenue</h3>
-        <p class="card-value">{{ totalRevenue.toFixed(0) }}</p>
+        <p class="card-value">{{ totalRevenue.toFixed(0) }} PKR</p>
         <small>{{ totalOrdersCount }} orders</small>
+      </div>
+    </div>
+    <div class="summary-card cash">
+      <div class="card-icon">💵</div>
+      <div class="card-content">
+        <h3>Cash Revenue</h3>
+        <p class="card-value">{{ cashRevenue.toFixed(0) }} PKR</p>
+        <small>Cash payments</small>
+      </div>
+    </div>
+    <div class="summary-card bank">
+      <div class="card-icon">🏦</div>
+      <div class="card-content">
+        <h3>Bank Transfer</h3>
+        <p class="card-value">{{ bankTransferRevenue.toFixed(0) }} PKR</p>
+        <small>Bank transfers</small>
+      </div>
+    </div>
+    <div class="summary-card credit">
+      <div class="card-icon">📝</div>
+      <div class="card-content">
+        <h3>Credit Account</h3>
+        <p class="card-value">{{ creditAccountRevenue.toFixed(0) }} PKR</p>
+        <small>Posted to accounts</small>
+      </div>
+    </div>
+    <div class="summary-card cash">
+      <div class="card-icon">📥</div>
+      <div class="card-content">
+        <h3>Collections (Cash)</h3>
+        <p class="card-value">{{ paymentsCashTotal.toFixed(0) }} PKR</p>
+        <small>Customer payments</small>
+      </div>
+    </div>
+    <div class="summary-card bank">
+      <div class="card-icon">📥</div>
+      <div class="card-content">
+        <h3>Collections (Bank)</h3>
+        <p class="card-value">{{ paymentsBankTotal.toFixed(0) }} PKR</p>
+        <small>Customer payments</small>
       </div>
     </div>
     <div class="summary-card expenses">
       <div class="card-icon">📊</div>
       <div class="card-content">
         <h3>Total Expenses</h3>
-        <p class="card-value">{{ totalExpenses.toFixed(0) }}</p>
+        <p class="card-value">{{ totalExpenses.toFixed(0) }} PKR</p>
         <small>{{ expenses.length }} purchases</small>
       </div>
     </div>
@@ -40,7 +80,7 @@
       <div class="card-icon">{{ profit >= 0 ? '📈' : '📉' }}</div>
       <div class="card-content">
         <h3>Profit/Loss</h3>
-        <p class="card-value">{{ profit.toFixed(0) }}</p>
+        <p class="card-value">{{ profit.toFixed(0) }} PKR</p>
         <small>Revenue - Expenses</small>
       </div>
     </div>
@@ -63,7 +103,9 @@
           <th>Date</th>
           <th>Table/Type</th>
           <th>Items</th>
+          <th>Payment</th>
           <th>Amount</th>
+          <th class="actions-col">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -72,10 +114,23 @@
           <td>{{ formatDate(order.createdAt) }}</td>
           <td>{{ order.isTakeaway ? 'Takeaway' : 'Table ' + order.tableNumber }}</td>
           <td>{{ order.items.length }} items</td>
-          <td>{{ order.totalAmount.toFixed(0) }}</td>
+          <td>
+            <span class="payment-badge" [class.cash]="order.paymentMethod === 'cash' || !order.paymentMethod" 
+                  [class.bank]="order.paymentMethod === 'bank_transfer'"
+                  [class.credit]="order.paymentMethod === 'credit_account'">
+              {{ order.paymentMethod === 'bank_transfer' ? '🏦 Bank' : 
+                 order.paymentMethod === 'credit_account' ? '📝 Credit' : '💵 Cash' }}
+            </span>
+          </td>
+          <td>{{ order.totalAmount.toFixed(0) }} PKR</td>
+          <td class="actions-col">
+            <button class="btn-view-detail-text" (click)="viewOrderDetail(order)">
+              View Details
+            </button>
+          </td>
         </tr>
         <tr *ngIf="salesOrders.length === 0">
-          <td colspan="5" class="no-data">No sales in this period</td>
+          <td colspan="6" class="no-data">No sales in this period</td>
         </tr>
       </tbody>
     </table>

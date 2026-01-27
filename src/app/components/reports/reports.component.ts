@@ -23,6 +23,15 @@ export class ReportsComponent implements OnInit {
   salesOrders: Order[] = [];
   totalRevenue: number = 0;
   totalOrdersCount: number = 0;
+  cashRevenue: number = 0;
+  bankTransferRevenue: number = 0;
+  creditAccountRevenue: number = 0;
+
+  // Collections (Customer Payments)
+  paymentsTotal: number = 0;
+  paymentsCashTotal: number = 0;
+  paymentsBankTotal: number = 0;
+  paymentsCheckTotal: number = 0;
   
   // Expenses Report
   expenses: Purchase[] = [];
@@ -58,6 +67,30 @@ export class ReportsComponent implements OnInit {
       this.salesOrders = this.salesOrders.filter(o => o.status === 'completed');
       this.totalRevenue = this.salesOrders.reduce((sum, o) => sum + o.totalAmount, 0);
       this.totalOrdersCount = this.salesOrders.length;
+      
+      // Calculate payment method breakdown
+      this.cashRevenue = this.salesOrders
+        .filter(o => o.paymentMethod === 'cash')
+        .reduce((sum, o) => sum + o.totalAmount, 0);
+      this.bankTransferRevenue = this.salesOrders
+        .filter(o => o.paymentMethod === 'bank_transfer')
+        .reduce((sum, o) => sum + o.totalAmount, 0);
+      this.creditAccountRevenue = this.salesOrders
+        .filter(o => o.paymentMethod === 'credit_account')
+        .reduce((sum, o) => sum + o.totalAmount, 0);
+
+      // Load customer payments (collections)
+      const payments = await this.db.getCustomerPaymentsByDateRange(start, end);
+      this.paymentsTotal = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      this.paymentsCashTotal = payments
+        .filter((p: any) => p.paymentMode === 'cash')
+        .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      this.paymentsBankTotal = payments
+        .filter((p: any) => p.paymentMode === 'bank_transfer')
+        .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      this.paymentsCheckTotal = payments
+        .filter((p: any) => p.paymentMode === 'check')
+        .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
       
       // Load expenses
       this.expenses = await this.db.getPurchasesByDateRange(start, end);
@@ -159,9 +192,15 @@ export class ReportsComponent implements OnInit {
       startY: yPos,
       head: [['Metric', 'Value']],
       body: [
-        ['Total Revenue', `$${this.totalRevenue.toFixed(2)} (${this.totalOrdersCount} orders)`],
-        ['Total Expenses', `$${this.totalExpenses.toFixed(2)} (${this.expenses.length} purchases)`],
-        ['Net Profit/Loss', `$${this.profit.toFixed(2)}`]
+        ['Total Revenue', `${this.totalRevenue.toFixed(0)} PKR (${this.totalOrdersCount} orders)`],
+        ['Cash Revenue', `${this.cashRevenue.toFixed(0)} PKR`],
+        ['Bank Transfer', `${this.bankTransferRevenue.toFixed(0)} PKR`],
+        ['Credit Account', `${this.creditAccountRevenue.toFixed(0)} PKR`],
+        ['Collections - Cash', `${this.paymentsCashTotal.toFixed(0)} PKR`],
+        ['Collections - Bank', `${this.paymentsBankTotal.toFixed(0)} PKR`],
+        ['Collections - Check', `${this.paymentsCheckTotal.toFixed(0)} PKR`],
+        ['Total Expenses', `${this.totalExpenses.toFixed(0)} PKR (${this.expenses.length} purchases)`],
+        ['Net Profit/Loss', `${this.profit.toFixed(0)} PKR`]
       ],
       theme: 'grid',
       headStyles: { fillColor: [102, 126, 234] },
@@ -181,20 +220,22 @@ export class ReportsComponent implements OnInit {
       this.formatDate(order.createdAt),
       order.isTakeaway ? 'Takeaway' : `Table ${order.tableNumber}`,
       order.items.map(i => `${i.quantity}x ${i.menuItemName}`).join(', '),
+      order.paymentMethod === 'bank_transfer' ? 'Bank' : 
+        order.paymentMethod === 'credit_account' ? 'Credit' : 'Cash',
       order.cashierName,
-      `$${order.totalAmount.toFixed(2)}`
+      `${order.totalAmount.toFixed(0)} PKR`
     ]);
     
     autoTable(doc, {
       startY: yPos,
-      head: [['Order #', 'Date', 'Type', 'Items', 'Cashier', 'Amount']],
-      body: salesData.length > 0 ? salesData : [['No sales in this period', '', '', '', '', '']],
+      head: [['Order #', 'Date', 'Type', 'Items', 'Payment', 'Cashier', 'Amount']],
+      body: salesData.length > 0 ? salesData : [['No sales in this period', '', '', '', '', '', '']],
       theme: 'striped',
       headStyles: { fillColor: [76, 175, 80] },
       margin: { left: 14, right: 14 },
       styles: { fontSize: 8, cellPadding: 3 },
       columnStyles: {
-        3: { cellWidth: 60 }
+        3: { cellWidth: 50 }
       }
     });
     
@@ -248,7 +289,7 @@ export class ReportsComponent implements OnInit {
       (index + 1).toString(),
       item.name,
       item.sold.toString(),
-      `$${item.revenue.toFixed(2)}`
+      `${item.revenue.toFixed(2)} PKR`
     ]);
     
     autoTable(doc, {
@@ -270,7 +311,15 @@ export class ReportsComponent implements OnInit {
 
   async clearRecords(): Promise<void> {
     const dateRange = `${this.startDate} to ${this.endDate}`;
-    const confirmMessage = `Are you sure you want to delete ALL records (sales and expenses) for the period ${dateRange}?\n\nThis action cannot be undone!\n\nRecords to be deleted:\n- ${this.salesOrders.length} sales orders\n- ${this.expenses.length} expense records`;
+    // Load payments for confirmation preview
+    const start = new Date(this.startDate);
+    const end = new Date(this.endDate); end.setHours(23,59,59);
+    const payments = await this.db.getCustomerPaymentsByDateRange(start, end);
+    const cashCount = payments.filter((p: any) => p.paymentMode === 'cash').length;
+    const bankCount = payments.filter((p: any) => p.paymentMode === 'bank_transfer').length;
+    const checkCount = payments.filter((p: any) => p.paymentMode === 'check').length;
+
+    const confirmMessage = `Are you sure you want to delete ALL records for ${dateRange}?\n\nThis action cannot be undone!\n\nRecords to be deleted:\n- ${this.salesOrders.length} sales orders\n- ${this.expenses.length} expense records\n- ${payments.length} customer payments (Cash: ${cashCount}, Bank: ${bankCount}, Check: ${checkCount})`;
     
     if (!confirm(confirmMessage)) {
       return;
@@ -284,6 +333,7 @@ export class ReportsComponent implements OnInit {
     try {
       let deletedOrders = 0;
       let deletedExpenses = 0;
+      let deletedPayments = 0;
       
       // Delete all sales orders
       for (const order of this.salesOrders) {
@@ -300,14 +350,63 @@ export class ReportsComponent implements OnInit {
           deletedExpenses++;
         }
       }
+
+      // Delete all customer payments in range and reverse balances
+      for (const p of payments) {
+        if (p.id) {
+          await this.db.deleteCustomerPayment(p.id);
+          deletedPayments++;
+        }
+      }
       
-      alert(`Records cleared successfully!\n\nDeleted:\n- ${deletedOrders} sales orders\n- ${deletedExpenses} expense records`);
+      alert(`Records cleared successfully!\n\nDeleted:\n- ${deletedOrders} sales orders\n- ${deletedExpenses} expense records\n- ${deletedPayments} customer payments`);
       
       // Reload reports to refresh the view
       await this.loadReports();
     } catch (error) {
       console.error('Error clearing records:', error);
       alert('Error clearing records. Please try again.');
+    }
+  }
+
+  viewOrderDetail(order: Order): void {
+    const created: Date = (order.createdAt && typeof order.createdAt === 'object' && 'toDate' in order.createdAt)
+      ? (order.createdAt as any).toDate()
+      : new Date(order.createdAt as any);
+    
+    const rows = (order.items || []).map(i =>
+      `<tr><td>${i.menuItemName}</td><td>${i.quantity}</td><td>${i.price.toFixed(0)} PKR</td><td>${i.totalPrice.toFixed(0)} PKR</td></tr>`
+    ).join('');
+    
+    const discountLine = order.discount > 0 
+      ? `<p>Discount: -${order.discount.toFixed(0)} PKR${order.discountType === 'percentage' ? ` (${order.discountValue}%)` : ''}</p>`
+      : '';
+    
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Order ${order.orderNumber}</title>
+      <style>body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif;padding:20px;color:#333}
+      h1{font-size:20px;margin:0 0 10px} p{margin:4px 0}
+      table{width:100%;border-collapse:collapse;margin-top:10px}
+      th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+      .total{font-weight:700;margin-top:12px}
+      </style></head><body>
+      <h1>Order ${order.orderNumber}</h1>
+      <p><strong>${order.isTakeaway ? 'Takeaway' : 'Table: ' + order.tableNumber}</strong></p>
+      <p>Customer: ${order.customerName || '-'}</p>
+      <p>Status: ${order.status}</p>
+      <p>Created: ${created.toLocaleString()}</p>
+      <table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>
+      <p>Subtotal: ${order.subtotal.toFixed(0)} PKR</p>
+      <p>Tax: ${order.tax.toFixed(0)} PKR</p>
+      ${discountLine}
+      <p class="total">Grand Total: ${order.totalAmount.toFixed(0)} PKR</p>
+      </body></html>`;
+    
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.focus();
     }
   }
 }
