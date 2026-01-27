@@ -1,0 +1,166 @@
+<div class="payment-collection-container">
+  <div class="header">
+    <h1>Payment Collection</h1>
+  </div>
+
+  <div class="main-content" *ngIf="!selectedCustomer">
+    <!-- Search -->
+    <div class="search-box">
+      <input 
+        type="text" 
+        [(ngModel)]="searchText" 
+        (input)="onSearchChange()" 
+        placeholder="🔍 Search customers with outstanding balance..."
+      />
+    </div>
+
+    <!-- Customers with Balance -->
+    <div class="customers-grid">
+      <div 
+        *ngFor="let customer of filteredCustomers" 
+        class="customer-card"
+        (click)="selectCustomer(customer)"
+      >
+        <div class="customer-info">
+          <div class="customer-name">{{ customer.name }}</div>
+          <div class="customer-phone">📞 {{ customer.phone }}</div>
+          <div class="customer-company" *ngIf="customer.companyName">
+            🏢 {{ customer.companyName }}
+          </div>
+        </div>
+        <div class="customer-balance">
+          <div class="balance-label">Outstanding</div>
+          <div class="balance-amount">{{ customer.currentBalance.toFixed(0) }} PKR</div>
+        </div>
+      </div>
+
+      <div *ngIf="filteredCustomers.length === 0" class="empty">
+        <div class="empty-icon">✅</div>
+        <div>No customers with outstanding balance</div>
+      </div>
+    </div>
+
+    <!-- Recent Payments -->
+    <div class="recent-payments" *ngIf="recentPayments.length > 0">
+      <h2>Recent Payments</h2>
+      <div class="payments-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Customer</th>
+              <th>Amount</th>
+              <th>Mode</th>
+              <th>Received By</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let payment of recentPayments">
+              <td>{{ formatDate(payment.date) }}</td>
+              <td>{{ payment.customerName }}</td>
+              <td class="amount">{{ payment.amount.toFixed(0) }} PKR</td>
+              <td>{{ getPaymentModeLabel(payment.paymentMode) }}</td>
+              <td>{{ payment.receivedBy }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Form -->
+  <div class="payment-form" *ngIf="selectedCustomer">
+    <button class="back-btn" (click)="closeCustomerSelection()">← Back to Customers</button>
+    
+    <div class="customer-details">
+      <h2>Collect Payment</h2>
+      <div class="detail-row">
+        <span class="label">Customer:</span>
+        <span class="value">{{ selectedCustomer.name }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Phone:</span>
+        <span class="value">{{ selectedCustomer.phone }}</span>
+      </div>
+      <div class="detail-row highlight">
+        <span class="label">Current Balance:</span>
+        <span class="value balance">{{ selectedCustomer.currentBalance.toFixed(0) }} PKR</span>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-group">
+        <label>Payment Amount (PKR) *</label>
+        <input 
+          type="number" 
+          [(ngModel)]="paymentAmount" 
+          min="0" 
+          [max]="selectedCustomer.currentBalance"
+          step="100"
+          class="amount-input"
+        />
+        <div class="quick-amounts">
+          <button 
+            class="quick-amount-btn" 
+            (click)="paymentAmount = selectedCustomer.currentBalance"
+          >
+            Full Amount ({{ selectedCustomer.currentBalance.toFixed(0) }})
+          </button>
+          <button 
+            class="quick-amount-btn" 
+            (click)="paymentAmount = Math.floor(selectedCustomer.currentBalance / 2)"
+          >
+            Half ({{ (selectedCustomer.currentBalance / 2).toFixed(0) }})
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Payment Mode *</label>
+        <div class="payment-mode-options">
+          <label class="radio-label">
+            <input type="radio" name="paymentMode" value="cash" [(ngModel)]="paymentMode" />
+            💵 Cash
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="paymentMode" value="bank_transfer" [(ngModel)]="paymentMode" />
+            🏦 Bank Transfer
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="paymentMode" value="check" [(ngModel)]="paymentMode" />
+            📝 Check
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group" *ngIf="paymentMode === 'check'">
+        <label>Check Number *</label>
+        <input type="text" [(ngModel)]="checkNumber" placeholder="Enter check number" />
+      </div>
+
+      <div class="form-group" *ngIf="paymentMode === 'bank_transfer'">
+        <label>Transaction ID *</label>
+        <input type="text" [(ngModel)]="transactionId" placeholder="Enter transaction ID" />
+      </div>
+
+      <div class="form-group">
+        <label>Notes (Optional)</label>
+        <textarea [(ngModel)]="notes" placeholder="Additional notes..." rows="3"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" (click)="closeCustomerSelection()" [disabled]="isLoading">
+          Cancel
+        </button>
+        <button class="btn btn-primary" (click)="recordPayment()" [disabled]="isLoading">
+          {{ isLoading ? 'Processing...' : 'Record Payment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="isLoading">
+    <div class="spinner"></div>
+  </div>
+</div>

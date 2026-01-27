@@ -10,6 +10,7 @@ import { UserManagementComponent } from './components/user-management/user-manag
 import { ReportsComponent } from './components/reports/reports.component';
 import { WaiterComponent } from './components/waiter/waiter.component';
 import { DealManagementComponent } from './components/deal-management/deal-management.component';
+import { CustomerManagementComponent } from './components/customer-management/customer-management.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -18,6 +19,7 @@ export const routes: Routes = [
   { path: 'menu', component: MenuManagementComponent, canActivate: [authGuard, adminGuard] },
   { path: 'deals', component: DealManagementComponent, canActivate: [authGuard, adminGuard] },
   { path: 'inventory', component: InventoryComponent, canActivate: [authGuard, adminGuard] },
+  { path: 'customers', component: CustomerManagementComponent, canActivate: [authGuard, adminGuard] },
   { path: 'pos', component: PosComponent, canActivate: [authGuard] },
   { path: 'kitchen', component: KitchenComponent, canActivate: [authGuard] },
   { path: 'waiter', component: WaiterComponent, canActivate: [authGuard] },

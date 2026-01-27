@@ -64,6 +64,7 @@
           <th>Table/Type</th>
           <th>Items</th>
           <th>Amount</th>
+          <th class="actions-col">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -73,9 +74,14 @@
           <td>{{ order.isTakeaway ? 'Takeaway' : 'Table ' + order.tableNumber }}</td>
           <td>{{ order.items.length }} items</td>
           <td>{{ order.totalAmount.toFixed(0) }}</td>
+          <td class="actions-col">
+            <button class="btn-view-detail-text" (click)="viewOrderDetail(order)">
+              View Details
+            </button>
+          </td>
         </tr>
         <tr *ngIf="salesOrders.length === 0">
-          <td colspan="5" class="no-data">No sales in this period</td>
+          <td colspan="6" class="no-data">No sales in this period</td>
         </tr>
       </tbody>
     </table>

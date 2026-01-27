@@ -310,4 +310,45 @@ export class ReportsComponent implements OnInit {
       alert('Error clearing records. Please try again.');
     }
   }
+
+  viewOrderDetail(order: Order): void {
+    const created: Date = (order.createdAt && typeof order.createdAt === 'object' && 'toDate' in order.createdAt)
+      ? (order.createdAt as any).toDate()
+      : new Date(order.createdAt as any);
+    
+    const rows = (order.items || []).map(i =>
+      `<tr><td>${i.menuItemName}</td><td>${i.quantity}</td><td>${i.price.toFixed(0)} PKR</td><td>${i.totalPrice.toFixed(0)} PKR</td></tr>`
+    ).join('');
+    
+    const discountLine = order.discount > 0 
+      ? `<p>Discount: -${order.discount.toFixed(0)} PKR${order.discountType === 'percentage' ? ` (${order.discountValue}%)` : ''}</p>`
+      : '';
+    
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Order ${order.orderNumber}</title>
+      <style>body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif;padding:20px;color:#333}
+      h1{font-size:20px;margin:0 0 10px} p{margin:4px 0}
+      table{width:100%;border-collapse:collapse;margin-top:10px}
+      th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+      .total{font-weight:700;margin-top:12px}
+      </style></head><body>
+      <h1>Order ${order.orderNumber}</h1>
+      <p><strong>${order.isTakeaway ? 'Takeaway' : 'Table: ' + order.tableNumber}</strong></p>
+      <p>Customer: ${order.customerName || '-'}</p>
+      <p>Status: ${order.status}</p>
+      <p>Created: ${created.toLocaleString()}</p>
+      <table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>
+      <p>Subtotal: ${order.subtotal.toFixed(0)} PKR</p>
+      <p>Tax: ${order.tax.toFixed(0)} PKR</p>
+      ${discountLine}
+      <p class="total">Grand Total: ${order.totalAmount.toFixed(0)} PKR</p>
+      </body></html>`;
+    
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+    }
+  }
 }

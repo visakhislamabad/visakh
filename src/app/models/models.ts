@@ -127,6 +127,9 @@ export interface Deal {
   createdAt?: Date;
 }
 
+// Discount Type
+export type DiscountType = 'fixed' | 'percentage';
+
 // Order (KOT - Kitchen Order Ticket)
 export interface Order {
   id?: string;
@@ -137,7 +140,9 @@ export interface Order {
   items: OrderItem[];
   subtotal: number;
   tax: number;
-  discount: number;
+  discount: number; // Calculated discount amount
+  discountType?: DiscountType; // Type of discount applied
+  discountValue?: number; // Original discount value (percentage or fixed amount)
   totalAmount: number;
   status: OrderStatus;
   createdAt: Date;
@@ -214,4 +219,60 @@ export interface AppSettings {
   taxRate: number; // default tax rate
   restaurantName: string;
   createdAt?: Date;
+}
+
+// Credit Customer (for loan/credit management)
+export interface CreditCustomer {
+  id?: string;
+  name: string;
+  phone: string;
+  address?: string;
+  companyName?: string;
+  currentBalance: number; // Current amount owed (read-only, calculated)
+  isCreditEnabled: boolean; // Can they make credit purchases?
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+// Customer Ledger Entry (transaction history)
+export interface CustomerLedgerEntry {
+  id?: string;
+  customerId: string;
+  customerName: string;
+  date: Date;
+  referenceType: 'sale' | 'payment'; // Sale adds debt, payment reduces it
+  referenceNumber: string; // Order number or payment receipt number
+  debit: number; // Amount added to debt (sale)
+  credit: number; // Amount paid (payment)
+  runningBalance: number; // Balance after this transaction
+  notes?: string;
+  createdAt?: Date;
+}
+
+// Customer Payment (when customer pays their debt)
+export interface CustomerPayment {
+  id?: string;
+  customerId: string;
+  customerName: string;
+  amount: number;
+  paymentMode: 'cash' | 'bank_transfer' | 'check';
+  checkNumber?: string; // For check payments
+  transactionId?: string; // For bank transfers
+  notes?: string;
+  receivedBy: string; // User who recorded the payment
+  date: Date;
+  createdAt?: Date;
+}
+
+// Aging Report Entry
+export interface AgingReportEntry {
+  customerId: string;
+  customerName: string;
+  phone: string;
+  totalBalance: number;
+  current: number; // 0-15 days
+  overdue: number; // 16-30 days
+  critical: number; // 30+ days
+  lastPaymentDate?: Date;
+  oldestDebtDate?: Date;
 }

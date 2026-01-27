@@ -1,0 +1,304 @@
+<div class="customer-management-container">
+  <div class="header">
+    <h1>Credit Customer Management</h1>
+    <button class="btn btn-primary" (click)="openAddForm()" [disabled]="isLoading">
+      + Add New Customer
+    </button>
+  </div>
+
+  <!-- Search -->
+  <div class="search-box">
+    <input 
+      type="text" 
+      [(ngModel)]="searchText" 
+      (input)="onSearchChange()" 
+      placeholder="🔍 Search by name, phone, or company..."
+    />
+  </div>
+
+  <!-- Customer Table -->
+  <div class="table-container">
+    <table class="customer-table">
+      <thead>
+        <tr>
+          <th>Customer Name</th>
+          <th>Phone</th>
+          <th>Company</th>
+          <th class="balance-header">Amount Due</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let customer of filteredCustomers">
+          <td class="customer-name">{{ customer.name }}</td>
+          <td>{{ customer.phone }}</td>
+          <td>{{ customer.companyName || '-' }}</td>
+          <td class="amount" [class.debt]="customer.currentBalance > 0">
+            {{ customer.currentBalance.toFixed(0) }} PKR
+          </td>
+          <td>
+            <span class="status-badge" [class.active]="customer.isCreditEnabled" [class.inactive]="!customer.isCreditEnabled">
+              {{ customer.isCreditEnabled ? 'Active' : 'Disabled' }}
+            </span>
+          </td>
+          <td class="actions">
+            <button class="btn-icon" (click)="viewLedger(customer)" title="View Ledger">📋</button>
+            <button class="btn-icon btn-collect" (click)="collectPayment(customer)" title="Collect Payment" [disabled]="customer.currentBalance <= 0">💰</button>
+            <button class="btn-icon" (click)="openEditForm(customer)" title="Edit">✏️</button>
+            <button 
+              class="btn-icon" 
+              (click)="toggleCreditStatus(customer)" 
+              [title]="customer.isCreditEnabled ? 'Disable Credit' : 'Enable Credit'"
+            >
+              {{ customer.isCreditEnabled ? '🔒' : '🔓' }}
+            </button>
+            <button 
+              class="btn-icon btn-delete" 
+              (click)="deleteCustomer(customer)" 
+              title="Delete"
+              [disabled]="customer.currentBalance > 0"
+            >
+              🗑️
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="filteredCustomers.length === 0">
+          <td colspan="6" class="empty">No customers found</td>
+        </tr>
+      </tbody>
+      <tfoot *ngIf="filteredCustomers.length > 0">
+        <tr class="totals-row">
+          <td colspan="3" class="totals-label"><strong>Total Amount Due:</strong></td>
+          <td class="amount debt"><strong>{{ getTotalAmountDue().toFixed(0) }} PKR</strong></td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <!-- Add/Edit Form Modal -->
+  <div class="modal" *ngIf="showForm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>{{ isEditMode ? 'Edit Customer' : 'Add New Customer' }}</h2>
+        <button class="close-btn" (click)="closeForm()">×</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Customer Name *</label>
+          <input type="text" [(ngModel)]="currentCustomer.name" placeholder="Enter customer name" />
+        </div>
+
+        <div class="form-group">
+          <label>Phone Number *</label>
+          <input type="text" [(ngModel)]="currentCustomer.phone" placeholder="Enter phone number" />
+        </div>
+
+        <div class="form-group">
+          <label>Company Name</label>
+          <input type="text" [(ngModel)]="currentCustomer.companyName" placeholder="Enter company name (optional)" />
+        </div>
+
+        <div class="form-group">
+          <label>Address</label>
+          <textarea [(ngModel)]="currentCustomer.address" placeholder="Enter address (optional)" rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="currentCustomer.isCreditEnabled" />
+            Enable Credit for this customer
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeForm()" [disabled]="isLoading">Cancel</button>
+        <button class="btn btn-primary" (click)="saveCustomer()" [disabled]="isLoading">
+          {{ isEditMode ? 'Update' : 'Add' }} Customer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="isLoading">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Ledger Modal -->
+  <div class="modal" *ngIf="showLedger">
+    <div class="modal-content ledger-modal">
+      <div class="modal-header">
+        <h2>{{ selectedCustomer?.name }} - Ledger</h2>
+        <button class="close-btn" (click)="closeLedger()">×</button>
+      </div>
+      
+      <div class="ledger-info">
+        <div class="info-item">
+          <span class="label">Phone:</span>
+          <span class="value">{{ selectedCustomer?.phone }}</span>
+        </div>
+        <div class="info-item" *ngIf="selectedCustomer?.companyName">
+          <span class="label">Company:</span>
+          <span class="value">{{ selectedCustomer?.companyName }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Amount Due:</span>
+          <span class="value balance" [class.debt]="selectedCustomer && selectedCustomer.currentBalance > 0">
+            {{ selectedCustomer ? selectedCustomer.currentBalance.toFixed(0) : '0' }} PKR
+          </span>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <div *ngIf="isLoadingLedger" class="loading">Loading ledger entries...</div>
+        
+        <div *ngIf="!isLoadingLedger && ledgerEntries.length === 0" class="empty">
+          No transaction history found
+        </div>
+
+        <div class="ledger-table-container" *ngIf="!isLoadingLedger && ledgerEntries.length > 0">
+          <table class="ledger-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Reference</th>
+                <th>Notes</th>
+                <th class="amount-col">Amount</th>
+                <th class="actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let entry of ledgerEntries">
+                <td class="date-col">{{ formatDate(entry.date) }}</td>
+                <td>
+                  <span class="type-badge" [class.sale]="entry.referenceType === 'sale'" [class.payment]="entry.referenceType === 'payment'">
+                    {{ entry.referenceType === 'sale' ? '🛒 Sale' : '💰 Payment' }}
+                  </span>
+                </td>
+                <td class="ref-col">
+                  {{ entry.referenceNumber }}
+                </td>
+                <td class="notes-col">{{ entry.notes || '-' }}</td>
+                <td class="amount-col" [class.debit]="entry.referenceType === 'sale'" [class.credit]="entry.referenceType === 'payment'">
+                  <span *ngIf="entry.referenceType === 'sale'">+{{ entry.debit.toFixed(0) }}</span>
+                  <span *ngIf="entry.referenceType === 'payment'">-{{ entry.credit.toFixed(0) }}</span>
+                </td>
+                <td class="actions-col">
+                  <button 
+                    *ngIf="entry.referenceType === 'sale'" 
+                    class="btn-view-detail-text" 
+                    (click)="viewOrderDetail(entry.referenceNumber)"
+                  >
+                    View Details
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary" (click)="collectPaymentFromLedger()" [disabled]="!selectedCustomer || selectedCustomer.currentBalance <= 0">
+          💰 Collect Payment
+        </button>
+        <button class="btn btn-secondary" (click)="closeLedger()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Collection Modal -->
+  <div class="modal" *ngIf="showPaymentModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Collect Payment - {{ selectedCustomer?.name }}</h2>
+        <button class="close-btn" (click)="closePaymentModal()">×</button>
+      </div>
+      
+      <div class="payment-info">
+        <div class="info-row">
+          <span class="label">Amount Due:</span>
+          <span class="value debt">{{ selectedCustomer ? selectedCustomer.currentBalance.toFixed(0) : '0' }} PKR</span>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Payment Amount (PKR) *</label>
+          <input 
+            type="number" 
+            [(ngModel)]="paymentAmount" 
+            min="0" 
+            [max]="selectedCustomer?.currentBalance || 0"
+            step="0.01"
+            class="form-input"
+            placeholder="Enter payment amount"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>Payment Mode *</label>
+          <div class="payment-mode-selector">
+            <label class="radio-label">
+              <input type="radio" name="paymentMode" value="cash" [(ngModel)]="paymentMode" />
+              💵 Cash
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="paymentMode" value="bank_transfer" [(ngModel)]="paymentMode" />
+              🏦 Bank Transfer
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="paymentMode" value="check" [(ngModel)]="paymentMode" />
+              📝 Check
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" *ngIf="paymentMode === 'check'">
+          <label>Check Number *</label>
+          <input 
+            type="text" 
+            [(ngModel)]="checkNumber" 
+            class="form-input"
+            placeholder="Enter check number"
+          />
+        </div>
+
+        <div class="form-group" *ngIf="paymentMode === 'bank_transfer'">
+          <label>Transaction ID *</label>
+          <input 
+            type="text" 
+            [(ngModel)]="transactionId" 
+            class="form-input"
+            placeholder="Enter transaction ID"
+          />
+        </div>
+
+        <div class="payment-summary" *ngIf="paymentAmount > 0">
+          <div class="summary-row">
+            <span>Payment Amount:</span>
+            <span class="credit">-{{ paymentAmount.toFixed(0) }} PKR</span>
+          </div>
+          <div class="summary-row">
+            <span>Remaining Balance:</span>
+            <span [class.debt]="(selectedCustomer?.currentBalance || 0) - paymentAmount > 0" [class.cleared]="(selectedCustomer?.currentBalance || 0) - paymentAmount <= 0">
+              {{ ((selectedCustomer?.currentBalance || 0) - paymentAmount).toFixed(0) }} PKR
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closePaymentModal()" [disabled]="isLoading">Cancel</button>
+        <button class="btn btn-primary" (click)="recordPayment()" [disabled]="isLoading || paymentAmount <= 0">
+          Record Payment
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
