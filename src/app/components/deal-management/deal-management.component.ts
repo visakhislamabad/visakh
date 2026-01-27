@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DatabaseService } from '../../services/database.service';
 import { AuthService } from '../../services/auth.service';
-import { Deal, DealMenuItem, MenuItem, MenuCategory } from '../../models/models';
+import { Deal, DealMenuItem, MenuItem, MenuCategory, Category } from '../../models/models';
 
 @Component({
   selector: 'app-deal-management',
@@ -15,6 +15,7 @@ import { Deal, DealMenuItem, MenuItem, MenuCategory } from '../../models/models'
 export class DealManagementComponent implements OnInit {
   deals: Deal[] = [];
   menuItems: MenuItem[] = [];
+  categories: Category[] = [];
   showDealModal: boolean = false;
   isEditMode: boolean = false;
   currentDeal: Deal = this.getEmptyDeal();
@@ -22,14 +23,22 @@ export class DealManagementComponent implements OnInit {
   // Deal creator state
   selectedMenuItemId: string = '';
   itemQuantity: number = 1;
-  selectedItemCategory: MenuCategory | 'All' = 'All';
-  itemCategories: (MenuCategory | 'All')[] = ['All', 'BBQ', 'Curries', 'Rice', 'Bread', 'Salads', 'Drinks', 'Desserts'];
+  selectedItemCategory: string = 'All';
 
   constructor(private db: DatabaseService, public authService: AuthService) {}
 
   async ngOnInit(): Promise<void> {
+    await this.loadCategories();
     await this.loadDeals();
     await this.loadMenuItems();
+  }
+
+  async loadCategories(): Promise<void> {
+    try {
+      this.categories = await this.db.getActiveCategories();
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
   }
 
   getEmptyDeal(): Deal {

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DatabaseService } from '../../services/database.service';
 import { AuthService } from '../../services/auth.service';
-import { MenuItem, Order, OrderItem, MenuCategory, Deal } from '../../models/models';
+import { MenuItem, Order, OrderItem, MenuCategory, Deal, Category } from '../../models/models';
 
 // Table status type
 type TableStatus = 'free' | 'occupied' | 'billRequested';
@@ -43,8 +43,8 @@ export class WaiterComponent implements OnInit {
   menuItems: MenuItem[] = [];
   deals: Deal[] = [];
   searchText: string = '';
-  selectedCategory: MenuCategory | 'All' | 'Deals' = 'All';
-  categories: (MenuCategory | 'All' | 'Deals')[] = ['All', 'Deals', 'BBQ', 'Curries', 'Rice', 'Bread', 'Salads', 'Drinks', 'Desserts'];
+  selectedCategory: string = 'All';
+  categories: Category[] = [];
   
   // Cart (draft items not yet sent to kitchen)
   draftCart: OrderItem[] = [];
@@ -65,11 +65,22 @@ export class WaiterComponent implements OnInit {
   constructor(private db: DatabaseService, public authService: AuthService) {}
 
   async ngOnInit(): Promise<void> {
+    await this.loadCategories();
     await this.loadMenuItems();
     await this.loadDeals();
     await this.loadAllTables();
     // Refresh table status every 30 seconds
     setInterval(() => this.loadAllTables(), 30000);
+  }
+
+  // ===== CATEGORY LOADING =====
+  
+  async loadCategories(): Promise<void> {
+    try {
+      this.categories = await this.db.getActiveCategories();
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
   }
 
   // ===== FLOOR MAP FUNCTIONS =====

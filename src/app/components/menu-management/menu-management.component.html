@@ -1,7 +1,11 @@
 <div class="menu-container">
   <div class="header">
     <h1>Menu Management</h1>
-    <button class="btn btn-primary" (click)="openAddModal()">+ Add New Menu Item</button>
+    <div class="header-actions">
+      <button class="btn btn-info" (click)="openCategoryModal()">🏷️ Manage Categories</button>
+      <button class="btn btn-success" (click)="exportToExcel()">📊 Export to Excel</button>
+      <button class="btn btn-primary" (click)="openAddModal()">+ Add New Menu Item</button>
+    </div>
   </div>
 
   <!-- Filters -->
@@ -10,7 +14,7 @@
       <label>Category:</label>
       <select [(ngModel)]="selectedCategory" (change)="onCategoryChange()">
         <option value="all">All Categories</option>
-        <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+        <option *ngFor="let cat of categories" [value]="cat.name">{{ cat.name }}</option>
       </select>
     </div>
     
@@ -81,7 +85,7 @@
         <div class="form-group">
           <label>Category *</label>
           <select [(ngModel)]="currentItem.category">
-            <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+            <option *ngFor="let cat of categories" [value]="cat.name">{{ cat.name }}</option>
           </select>
         </div>
 
@@ -171,6 +175,79 @@
         <button class="btn btn-primary" (click)="saveItem()" [disabled]="isLoading">
           {{ isLoading ? 'Saving...' : 'Save' }}
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Management Modal -->
+  <div class="modal" *ngIf="showCategoryModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Manage Categories</h2>
+        <button class="close-btn" (click)="closeCategoryModal()">&times;</button>
+      </div>
+      
+      <div class="modal-body category-management-body">
+        <!-- Left side: Form -->
+        <div class="category-form-section">
+          <h3>{{ isCategoryEditMode ? 'Edit' : 'Add New' }} Category</h3>
+          
+          <div class="form-group">
+            <label>Category Name *</label>
+            <input type="text" [(ngModel)]="currentCategory.name" placeholder="e.g., Appetizers, Main Course" />
+          </div>
+
+          <div class="form-group">
+            <label>Display Order</label>
+            <input type="number" [(ngModel)]="currentCategory.displayOrder" min="0" placeholder="Order in dropdown" />
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="currentCategory.isActive" />
+              Active
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-secondary" (click)="resetCategoryForm()">Reset</button>
+            <button class="btn btn-primary" (click)="saveCategory()" [disabled]="isLoading">
+              {{ isLoading ? 'Saving...' : (isCategoryEditMode ? 'Update' : 'Add') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Right side: Existing Categories List -->
+        <div class="categories-list-section">
+          <h3>Existing Categories ({{ categories.length }})</h3>
+          
+          <div class="categories-grid" *ngIf="categories.length > 0">
+            <div class="category-card" *ngFor="let cat of categories">
+              <div class="category-info">
+                <span class="category-name">{{ cat.name }}</span>
+                <span class="category-order">Order: {{ cat.displayOrder }}</span>
+                <span class="category-status" [class.active]="cat.isActive" [class.inactive]="!cat.isActive">
+                  {{ cat.isActive ? 'Active' : 'Inactive' }}
+                </span>
+              </div>
+              <div class="category-actions">
+                <button class="btn btn-sm btn-edit" (click)="openEditCategoryModal(cat)">Edit</button>
+                <button class="btn btn-sm btn-toggle" (click)="toggleCategoryActive(cat)">
+                  {{ cat.isActive ? 'Deactivate' : 'Activate' }}
+                </button>
+                <button class="btn btn-sm btn-delete" (click)="deleteCategory(cat)">Delete</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="no-categories" *ngIf="categories.length === 0">
+            <p>No categories yet. Add your first category!</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeCategoryModal()">Close</button>
       </div>
     </div>
   </div>

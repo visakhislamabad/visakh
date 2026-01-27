@@ -13,8 +13,17 @@ export interface User {
   isActive: boolean;
 }
 
-// Menu Item Category
-export type MenuCategory = 'BBQ' | 'Curries' | 'Rice' | 'Bread' | 'Salads' | 'Drinks' | 'Desserts';
+// Menu Category interface for dynamic categories
+export interface Category {
+  id?: string;
+  name: string;
+  displayOrder?: number; // Optional: for sorting categories
+  isActive: boolean;
+  createdAt?: Date;
+}
+
+// Menu Item Category (now just a string)
+export type MenuCategory = string;
 
 // Menu Item (Product to sell)
 export interface MenuItem {

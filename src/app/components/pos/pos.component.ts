@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DatabaseService } from '../../services/database.service';
 import { AuthService } from '../../services/auth.service';
-import { MenuItem, OrderItem, Order, MenuCategory, Deal, DiscountType, CreditCustomer } from '../../models/models';
+import { MenuItem, OrderItem, Order, MenuCategory, Deal, DiscountType, CreditCustomer, Category } from '../../models/models';
 
 @Component({
   selector: 'app-pos',
@@ -50,9 +50,9 @@ export class PosComponent implements OnInit {
   availableTables: string[] = [];
   
   // Filters
-  selectedCategory: MenuCategory | 'all' = 'all';
+  selectedCategory: string = 'all';
   searchText: string = '';
-  categories: (MenuCategory | 'all')[] = ['all', 'BBQ', 'Curries', 'Rice', 'Bread', 'Salads', 'Drinks', 'Desserts'];
+  categories: Category[] = [];
   
   isLoading: boolean = false;
 
@@ -62,6 +62,7 @@ export class PosComponent implements OnInit {
   ) {}
 
   async ngOnInit(): Promise<void> {
+    await this.loadCategories();
     await this.loadMenuItems();
     await this.loadDeals();
     await this.loadReadyOrders();
@@ -75,6 +76,14 @@ export class PosComponent implements OnInit {
     this.refreshTimer = setInterval(() => {
       this.loadReadyOrders();
     }, 30000);
+  }
+
+  async loadCategories(): Promise<void> {
+    try {
+      this.categories = await this.db.getActiveCategories();
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
   }
 
   async loadMenuItems(): Promise<void> {

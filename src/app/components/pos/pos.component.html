@@ -5,13 +5,23 @@
     <!-- Category Filter -->
     <div class="category-tabs">
       <button 
-        *ngFor="let cat of categories" 
-        [class.active]="selectedCategory === cat"
-        (click)="selectedCategory = cat; onCategoryChange()"
+        [class.active]="selectedCategory === 'all'"
+        (click)="selectedCategory = 'all'; onCategoryChange()"
         class="category-tab"
       >
-        {{ cat === 'all' ? 'All' : cat }}
+        All
       </button>
+      <button 
+        *ngFor="let cat of categories" 
+        [class.active]="selectedCategory === cat.name"
+        (click)="selectedCategory = cat.name; onCategoryChange()"
+        class="category-tab"
+      >
+        {{ cat.name }}
+      </button>
+      <span *ngIf="categories.length === 0" class="no-categories-hint">
+        (No categories - Add them in Menu Management)
+      </span>
     </div>
 
     <!-- Search -->

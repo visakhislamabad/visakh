@@ -82,7 +82,8 @@
               <div class="form-group">
                 <label>Filter by Category</label>
                 <select [(ngModel)]="selectedItemCategory">
-                  <option *ngFor="let cat of itemCategories" [ngValue]="cat">{{ cat }}</option>
+                  <option [ngValue]="'All'">All</option>
+                  <option *ngFor="let cat of categories" [ngValue]="cat.name">{{ cat.name }}</option>
                 </select>
               </div>
               <div class="form-row">

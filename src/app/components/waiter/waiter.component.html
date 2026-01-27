@@ -170,11 +170,24 @@
     <!-- Category Slider -->
     <div class="category-slider">
       <button 
-        *ngFor="let cat of categories"
-        [class.active]="selectedCategory === cat"
-        (click)="selectedCategory = cat">
-        {{ cat }}
+        [class.active]="selectedCategory === 'All'"
+        (click)="selectedCategory = 'All'">
+        All
       </button>
+      <button 
+        [class.active]="selectedCategory === 'Deals'"
+        (click)="selectedCategory = 'Deals'">
+        Deals
+      </button>
+      <button 
+        *ngFor="let cat of categories"
+        [class.active]="selectedCategory === cat.name"
+        (click)="selectedCategory = cat.name">
+        {{ cat.name }}
+      </button>
+      <span *ngIf="categories.length === 0" class="no-categories-hint">
+        (No menu categories yet)
+      </span>
     </div>
 
     <!-- Item Grid -->

@@ -27,7 +27,8 @@ import {
   DailySummary,
   InventoryAdjustment,
   AppSettings,
-  Deal
+  Deal,
+  Category
 } from '../models/models';
 
 @Injectable({
@@ -97,6 +98,44 @@ export class DatabaseService {
   async deleteMenuItem(id: string): Promise<void> {
     const itemDoc = doc(this.firestore, `menuItems/${id}`);
     await deleteDoc(itemDoc);
+  }
+
+  // ============ CATEGORIES ============
+  async createCategory(category: Category): Promise<string> {
+    const categoriesRef = collection(this.firestore, 'categories');
+    const docRef = await addDoc(categoriesRef, {
+      ...category,
+      createdAt: Timestamp.now()
+    });
+    return docRef.id;
+  }
+
+  async getCategories(): Promise<Category[]> {
+    const categoriesRef = collection(this.firestore, 'categories');
+    const snapshot = await this.inCtx(() => getDocs(categoriesRef));
+    const categories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+    // Sort by displayOrder in memory
+    return categories.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+  }
+
+  async getActiveCategories(): Promise<Category[]> {
+    const categoriesRef = collection(this.firestore, 'categories');
+    const snapshot = await this.inCtx(() => getDocs(categoriesRef));
+    const categories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+    // Filter active and sort by displayOrder in memory
+    return categories
+      .filter(cat => cat.isActive)
+      .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+  }
+
+  async updateCategory(id: string, category: Partial<Category>): Promise<void> {
+    const categoryDoc = doc(this.firestore, `categories/${id}`);
+    await updateDoc(categoryDoc, category);
+  }
+
+  async deleteCategory(id: string): Promise<void> {
+    const categoryDoc = doc(this.firestore, `categories/${id}`);
+    await deleteDoc(categoryDoc);
   }
 
   // ============ DEALS & COMBOS ============

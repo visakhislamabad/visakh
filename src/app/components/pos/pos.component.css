@@ -30,6 +30,7 @@
   gap: 10px;
   margin-bottom: 15px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .category-tab {
@@ -54,6 +55,13 @@
   border-color: #667eea;
 }
 
+.no-categories-hint {
+  font-size: 12px;
+  color: #999;
+  font-style: italic;
+  margin-left: 10px;
+}
+
 .search-box {
   margin-bottom: 15px;
 }
@@ -73,6 +81,8 @@
   gap: 15px;
   overflow-y: auto;
   flex: 1;
+  align-content: start;
+  grid-auto-rows: max-content;
 }
 
 .menu-item-card {
@@ -87,7 +97,7 @@
   justify-content: center;
   align-items: center;
   text-align: center;
-  min-height: 120px;
+  height: 120px;
 }
 
 .menu-item-card:hover {
