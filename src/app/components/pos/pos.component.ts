@@ -642,24 +642,33 @@ export class PosComponent implements OnInit {
     
     this.isLoading = true;
     try {
-      // Save the order
-      await this.db.createOrder(this.previewOrder);
+      // Print the bill first (before saving)
+      const shouldProceed = await this.printThermalBillWithConfirmation(this.previewOrder);
       
-      // Deduct prepared items from inventory if linked
+      if (!shouldProceed) {
+        // User cancelled the print dialog
+        this.isLoading = false;
+        return;
+      }
+      
+      // Deduct prepared items from inventory BEFORE clearing cart
       await this.deductPreparedItems();
       
-      // Print the bill
-      this.printThermalBill(this.previewOrder);
+      // Save the order after successful print
+      await this.db.createOrder(this.previewOrder);
+      
+      // Store total for alert message before clearing
+      const totalAmount = this.previewOrder.totalAmount;
       
       // Close modal and clear cart
       this.closeBillPreview();
       this.clearCart();
       this.paymentMethod = 'cash'; // Reset to default
       
-      alert(`Payment successful! Total: ${this.previewOrder.totalAmount.toFixed(0)} PKR\nBill sent to printer.`);
+      alert(`Payment successful! Total: ${totalAmount.toFixed(0)} PKR\nBill sent to printer.`);
     } catch (error) {
       console.error('Error processing payment:', error);
-      alert('Error processing payment');
+      alert('Error processing payment: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       this.isLoading = false;
     }
@@ -670,24 +679,227 @@ export class PosComponent implements OnInit {
     
     this.isLoading = true;
     try {
+      // Deduct prepared items from inventory BEFORE clearing cart
+      await this.deductPreparedItems();
+      
       // Save the order
       await this.db.createOrder(this.previewOrder);
       
-      // Deduct prepared items from inventory if linked
-      await this.deductPreparedItems();
+      // Store total for alert message before clearing
+      const totalAmount = this.previewOrder.totalAmount;
       
       // Close modal and clear cart
       this.closeBillPreview();
       this.clearCart();
       this.paymentMethod = 'cash'; // Reset to default
       
-      alert(`Payment successful! Total: ${this.previewOrder.totalAmount.toFixed(0)} PKR`);
+      alert(`Payment successful! Total: ${totalAmount.toFixed(0)} PKR`);
     } catch (error) {
       console.error('Error processing payment:', error);
-      alert('Error processing payment');
+      alert('Error processing payment: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       this.isLoading = false;
     }
+  }
+  
+  printThermalBillWithConfirmation(order: Order): Promise<boolean> {
+    return new Promise((resolve) => {
+      // Create thermal printer-optimized HTML (3-4 inch width)
+      const items = order.items.map(item => `
+        <tr>
+          <td>${item.menuItemName}</td>
+          <td style="text-align: right;">${item.quantity}</td>
+          <td style="text-align: right;">${item.price.toFixed(0)}</td>
+          <td style="text-align: right;">${item.totalPrice.toFixed(0)}</td>
+        </tr>
+      `).join('');
+      
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Bill - ${order.orderNumber}</title>
+          <style>
+            @media print {
+              @page {
+                size: 80mm auto;
+                margin: 0;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+              }
+            }
+            body {
+              font-family: 'Courier New', monospace;
+              width: 80mm;
+              margin: 0 auto;
+              padding: 5mm;
+              font-size: 12px;
+              line-height: 1.4;
+            }
+            h1 {
+              text-align: center;
+              font-size: 18px;
+              margin: 5px 0;
+              font-weight: bold;
+            }
+            .center {
+              text-align: center;
+            }
+            .divider {
+              border-top: 1px dashed #000;
+              margin: 8px 0;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 8px 0;
+            }
+            th, td {
+              padding: 3px 2px;
+              text-align: left;
+            }
+            th {
+              border-bottom: 1px solid #000;
+              font-weight: bold;
+            }
+            .total-section {
+              margin-top: 10px;
+            }
+            .total-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 2px 0;
+            }
+            .total-final {
+              font-weight: bold;
+              font-size: 14px;
+              border-top: 1px solid #000;
+              padding-top: 5px;
+              margin-top: 5px;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 10px;
+              font-size: 11px;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>VISAKH</h1>
+          <div class="center">Restaurant Bill</div>
+          <div class="divider"></div>
+          
+          <div><strong>Order:</strong> ${order.orderNumber}</div>
+          <div><strong>Date:</strong> ${new Date().toLocaleString()}</div>
+          <div><strong>Type:</strong> ${order.isTakeaway ? 'Takeaway' : 'Dine-in - Table ' + order.tableNumber}</div>
+          ${order.customerName ? `<div><strong>Customer:</strong> ${order.customerName}</div>` : ''}
+          <div><strong>Payment:</strong> ${order.paymentMethod === 'cash' ? 'Cash' : order.paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'Credit Account'}</div>
+          
+          <div class="divider"></div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th style="text-align: right;">Qty</th>
+                <th style="text-align: right;">Price</th>
+                <th style="text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items}
+            </tbody>
+          </table>
+          
+          <div class="divider"></div>
+          
+          <div class="total-section">
+            <div class="total-row">
+              <span>Subtotal:</span>
+              <span>${order.subtotal.toFixed(0)} PKR</span>
+            </div>
+            <div class="total-row">
+              <span>Tax:</span>
+              <span>${order.tax.toFixed(0)} PKR</span>
+            </div>
+            ${order.discount > 0 ? `
+            <div class="total-row">
+              <span>Discount:</span>
+              <span>-${order.discount.toFixed(0)} PKR</span>
+            </div>
+            ` : ''}
+            <div class="total-row total-final">
+              <span>TOTAL:</span>
+              <span>${order.totalAmount.toFixed(0)} PKR</span>
+            </div>
+          </div>
+          
+          <div class="divider"></div>
+          <div class="footer">
+            <div>Thank you for your visit!</div>
+            <div>Please visit again</div>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // Open print window
+      const printWindow = window.open('', '_blank', 'width=300,height=600');
+      if (!printWindow) {
+        // Pop-up blocked or failed to open
+        const userConfirmed = confirm('Unable to open print window. Continue without printing?');
+        resolve(userConfirmed);
+        return;
+      }
+      
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      
+      let hasResolved = false;
+      
+      // Track if window is closed without printing
+      const checkClosed = setInterval(() => {
+        if (printWindow.closed && !hasResolved) {
+          clearInterval(checkClosed);
+          hasResolved = true;
+          // Ask user if they want to continue despite not printing
+          const userConfirmed = confirm('Print window was closed. Do you want to complete the payment anyway?');
+          resolve(userConfirmed);
+        }
+      }, 500);
+      
+      // Wait for content to load then print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          // Give user time to print, then resolve
+          setTimeout(() => {
+            if (!hasResolved) {
+              hasResolved = true;
+              clearInterval(checkClosed);
+              printWindow.close();
+              resolve(true); // Assume successful if print dialog was shown
+            }
+          }, 1000);
+        }, 250);
+      };
+      
+      // Timeout fallback (in case print dialog takes too long)
+      setTimeout(() => {
+        if (!hasResolved) {
+          hasResolved = true;
+          clearInterval(checkClosed);
+          if (!printWindow.closed) {
+            printWindow.close();
+          }
+          resolve(true);
+        }
+      }, 30000); // 30 second timeout
+    });
   }
   
   printThermalBill(order: Order): void {
@@ -994,7 +1206,7 @@ export class PosComponent implements OnInit {
   clearCart(): void {
     this.cart = [];
     this.tableNumber = '';
-    this.isTakeaway = false;
+    this.isTakeaway = true;
     this.customerName = '';
     this.discount = 0;
   }
