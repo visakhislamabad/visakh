@@ -284,7 +284,7 @@
         <button class="post-to-account" (click)="openCreditCustomerSelection()" [disabled]="isLoading">
           📝 Post to Account
         </button>
-        <button class="complete" (click)="completeSettlement()" [disabled]="isLoading">Complete Payment</button>
+        <button class="complete" (click)="completeSettlement()" [disabled]="isLoading">Pay & Print Bill</button>
       </div>
     </div>
 
@@ -340,5 +340,126 @@
       </div>
     </div>
     
+  </div>
+</div>
+
+<!-- Bill Preview Modal -->
+<div class="modal-overlay" *ngIf="showBillPreviewModal" (click)="closeBillPreview()">
+  <div class="modal-content bill-preview-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Bill Preview</h2>
+      <button class="close-btn" (click)="closeBillPreview()">×</button>
+    </div>
+    
+    <div class="modal-body" *ngIf="previewOrder">
+      <!-- Bill Preview Content -->
+      <div class="bill-preview-content">
+        <div class="restaurant-header">
+          <h1>VISAKH</h1>
+          <p>Restaurant Bill</p>
+        </div>
+        
+        <div class="bill-divider"></div>
+        
+        <div class="bill-info">
+          <div class="bill-row">
+            <span class="label">Order Number:</span>
+            <span class="value">{{ previewOrder.orderNumber }}</span>
+          </div>
+          <div class="bill-row">
+            <span class="label">Date & Time:</span>
+            <span class="value">{{ formatOrderDate(previewOrder.createdAt) }}</span>
+          </div>
+          <div class="bill-row">
+            <span class="label">Order Type:</span>
+            <span class="value">{{ previewOrder.isTakeaway ? 'Takeaway' : 'Dine-in - Table ' + previewOrder.tableNumber }}</span>
+          </div>
+          <div class="bill-row" *ngIf="previewOrder.customerName">
+            <span class="label">Customer:</span>
+            <span class="value">{{ previewOrder.customerName }}</span>
+          </div>
+          <div class="bill-row">
+            <span class="label">Payment Method:</span>
+            <span class="value">
+              {{ previewOrder.paymentMethod === 'cash' ? '💵 Cash' : 
+                 previewOrder.paymentMethod === 'bank_transfer' ? '🏦 Bank Transfer' : 
+                 '📝 Credit Account' }}
+            </span>
+          </div>
+        </div>
+        
+        <div class="bill-divider"></div>
+        
+        <!-- Items Table -->
+        <table class="bill-items-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="text-center">Qty</th>
+              <th class="text-right">Price</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of previewOrder.items">
+              <td>{{ item.menuItemName }}</td>
+              <td class="text-center">{{ item.quantity }}</td>
+              <td class="text-right">{{ item.price.toFixed(0) }}</td>
+              <td class="text-right">{{ item.totalPrice.toFixed(0) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div class="bill-divider"></div>
+        
+        <!-- Totals Section -->
+        <div class="bill-totals">
+          <div class="total-row">
+            <span>Subtotal:</span>
+            <span>{{ previewOrder.subtotal.toFixed(0) }} PKR</span>
+          </div>
+          <div class="total-row">
+            <span>Tax:</span>
+            <span>{{ previewOrder.tax.toFixed(0) }} PKR</span>
+          </div>
+          <div class="total-row" *ngIf="previewOrder.discount > 0">
+            <span>Discount:</span>
+            <span>-{{ previewOrder.discount.toFixed(0) }} PKR</span>
+          </div>
+          <div class="total-row total-final">
+            <span>TOTAL AMOUNT:</span>
+            <span>{{ previewOrder.totalAmount.toFixed(0) }} PKR</span>
+          </div>
+        </div>
+        
+        <div class="bill-divider"></div>
+        
+        <div class="bill-footer">
+          <p>Thank you for your visit!</p>
+          <p>Please visit again</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeBillPreview()" [disabled]="isLoading">
+        Cancel
+      </button>
+      <!-- Check if this is a settlement (previewOrder has an id) or new order (no id yet) -->
+      <button 
+        class="btn btn-warning" 
+        (click)="previewOrder?.id ? completeSettlementWithoutPrint() : completeWithoutPrint()" 
+        [disabled]="isLoading"
+      >
+        Complete Payment (No Print)
+      </button>
+      <button 
+        class="btn btn-primary" 
+        (click)="previewOrder?.id ? printAndCompleteSettlement() : printAndComplete()" 
+        [disabled]="isLoading"
+      >
+        🖨️ Print & Complete
+      </button>
+    </div>
   </div>
 </div>

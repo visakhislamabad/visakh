@@ -46,6 +46,8 @@ export class CustomerManagementComponent implements OnInit {
     this.isLoading = true;
     try {
       this.customers = await this.db.getCreditCustomers();
+      // Sort customers alphabetically by name
+      this.customers.sort((a, b) => a.name.localeCompare(b.name));
       this.filteredCustomers = [...this.customers];
     } catch (error) {
       console.error('Error loading customers:', error);

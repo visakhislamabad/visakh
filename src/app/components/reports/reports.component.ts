@@ -2,9 +2,33 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DatabaseService } from '../../services/database.service';
-import { Order, Purchase } from '../../models/models';
+import { AuthService } from '../../services/auth.service';
+import { Order, Purchase, OrderItem } from '../../models/models';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+
+interface ManualSaleItem {
+  name: string;
+  quantity: number;
+  price: number;
+  total: number;
+}
+
+interface ManualSale {
+  date: string;
+  time: string;
+  isTakeaway: boolean;
+  tableNumber: string;
+  customerName: string;
+  items: ManualSaleItem[];
+  subtotal: number;
+  taxRate: number;
+  tax: number;
+  discount: number;
+  totalAmount: number;
+  paymentMethod: 'cash' | 'bank_transfer' | 'credit_account';
+  notes: string;
+}
 
 @Component({
   selector: 'app-reports',
@@ -43,7 +67,11 @@ export class ReportsComponent implements OnInit {
   // Item Performance
   itemPerformance: { name: string; sold: number; revenue: number }[] = [];
 
-  constructor(private db: DatabaseService) {}
+  // Manual Sale Entry
+  showManualSaleModal: boolean = false;
+  manualSale: ManualSale = this.getEmptyManualSale();
+
+  constructor(private db: DatabaseService, private authService: AuthService) {}
 
   async ngOnInit(): Promise<void> {
     // Set default dates (last 7 days)
@@ -408,5 +436,170 @@ export class ReportsComponent implements OnInit {
       w.document.close();
       w.focus();
     }
+  }
+
+  // Manual Sales Entry Methods
+  getEmptyManualSale(): ManualSale {
+    const now = new Date();
+    return {
+      date: now.toISOString().split('T')[0],
+      time: now.toTimeString().split(' ')[0].substring(0, 5), // HH:MM
+      isTakeaway: true,
+      tableNumber: '',
+      customerName: '',
+      items: [{ name: '', quantity: 1, price: 0, total: 0 }],
+      subtotal: 0,
+      taxRate: 0,
+      tax: 0,
+      discount: 0,
+      totalAmount: 0,
+      paymentMethod: 'cash',
+      notes: ''
+    };
+  }
+
+  openManualSaleModal(): void {
+    this.manualSale = this.getEmptyManualSale();
+    this.showManualSaleModal = true;
+  }
+
+  closeManualSaleModal(): void {
+    this.showManualSaleModal = false;
+  }
+
+  addManualItem(): void {
+    this.manualSale.items.push({ name: '', quantity: 1, price: 0, total: 0 });
+  }
+
+  removeManualItem(index: number): void {
+    if (this.manualSale.items.length > 1) {
+      this.manualSale.items.splice(index, 1);
+      this.calculateManualTotals();
+    }
+  }
+
+  calculateManualItemTotal(index: number): void {
+    const item = this.manualSale.items[index];
+    item.total = item.quantity * item.price;
+    this.calculateManualTotals();
+  }
+
+  calculateManualTotals(): void {
+    // Calculate subtotal
+    this.manualSale.subtotal = this.manualSale.items.reduce((sum, item) => sum + item.total, 0);
+    
+    // Calculate tax
+    this.manualSale.tax = (this.manualSale.subtotal * this.manualSale.taxRate) / 100;
+    
+    // Calculate total
+    this.manualSale.totalAmount = this.manualSale.subtotal + this.manualSale.tax - this.manualSale.discount;
+  }
+
+  isManualSaleValid(): boolean {
+    // Check if date and time are set
+    if (!this.manualSale.date || !this.manualSale.time) {
+      return false;
+    }
+
+    // Check if at least one item with valid data exists
+    const hasValidItem = this.manualSale.items.some(
+      item => item.name.trim() !== '' && item.quantity > 0 && item.price > 0
+    );
+
+    if (!hasValidItem) {
+      return false;
+    }
+
+    // Check if total is positive
+    if (this.manualSale.totalAmount <= 0) {
+      return false;
+    }
+
+    return true;
+  }
+
+  async saveManualSale(): Promise<void> {
+    if (!this.isManualSaleValid()) {
+      alert('Please fill in all required fields with valid values.');
+      return;
+    }
+
+    try {
+      // Combine date and time to create timestamp
+      const saleDateTime = new Date(`${this.manualSale.date}T${this.manualSale.time}`);
+      
+      if (isNaN(saleDateTime.getTime())) {
+        alert('Invalid date or time format.');
+        return;
+      }
+
+      // Get current user info
+      const currentUser = this.authService.currentUser;
+      if (!currentUser) {
+        alert('User not authenticated.');
+        return;
+      }
+
+      // Generate order number
+      const orderNumber = await this.generateOrderNumber();
+
+      // Filter out empty items and convert to OrderItem format
+      const orderItems: OrderItem[] = this.manualSale.items
+        .filter(item => item.name.trim() !== '' && item.quantity > 0 && item.price > 0)
+        .map(item => ({
+          menuItemId: 'manual-entry',
+          menuItemName: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          totalPrice: item.total
+        }));
+
+      // Create order object
+      const order: Order = {
+        orderNumber: orderNumber,
+        isTakeaway: this.manualSale.isTakeaway,
+        tableNumber: this.manualSale.isTakeaway ? undefined : this.manualSale.tableNumber || undefined,
+        customerName: this.manualSale.customerName || undefined,
+        items: orderItems,
+        subtotal: this.manualSale.subtotal,
+        tax: this.manualSale.tax,
+        discount: this.manualSale.discount,
+        totalAmount: this.manualSale.totalAmount,
+        status: 'completed', // Manual sales are already completed
+        paymentMethod: this.manualSale.paymentMethod,
+        createdAt: saleDateTime,
+        completedAt: saleDateTime, // Same as created since it's historical
+        cashierId: currentUser.id || 'manual-entry',
+        cashierName: currentUser.name
+      };
+
+      // Save to database
+      const orderId = await this.db.createOrder(order);
+
+      // Log the activity
+      await this.db.logActivity({
+        userId: currentUser.id || 'manual-entry',
+        userName: currentUser.name,
+        action: 'Manual Sale Entry',
+        timestamp: new Date(),
+        details: `Added manual sale record ${orderNumber} for ${this.manualSale.totalAmount.toFixed(2)} PKR (Date: ${this.manualSale.date} ${this.manualSale.time})${this.manualSale.notes ? ' - ' + this.manualSale.notes : ''}`
+      });
+
+      alert(`Manual sale record saved successfully!\nOrder Number: ${orderNumber}`);
+      
+      // Close modal and reload reports
+      this.closeManualSaleModal();
+      await this.loadReports();
+    } catch (error) {
+      console.error('Error saving manual sale:', error);
+      alert('Error saving manual sale record. Please try again.');
+    }
+  }
+
+  async generateOrderNumber(): Promise<string> {
+    // Generate a unique order number
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 1000);
+    return `MANUAL-${timestamp}-${random}`;
   }
 }

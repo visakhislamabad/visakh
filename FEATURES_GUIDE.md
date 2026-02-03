@@ -218,6 +218,67 @@ Repeat for:
 | Prepared items | Inventory → Stock | Add with "Prepared" category |
 | Link to menu | Menu Management | Set preparedItemId field |
 | View history | Inventory tabs | Check Purchase History or Adjustments |
+| Manual sales entry | Reports & Accounts | Click "➕ Add Manual Sale" |
+
+---
+
+### ✅ Manual Sales Entry
+
+**Status:** ✅ IMPLEMENTED
+
+**Purpose:**
+Record sales that occurred when the system was unavailable (e.g., during breakfast time, power outage, internet down, etc.)
+
+**How to Use:**
+1. Go to **Reports & Accounts**
+2. Click **"➕ Add Manual Sale"** button
+3. Fill in the sale details:
+   - **Sale Date & Time**: When the sale actually occurred
+   - **Order Type**: Takeaway or Dine-in
+   - **Table Number**: Required for dine-in orders
+   - **Customer Name**: Optional
+   - **Items**: Add all items sold
+     - Item name, quantity, and price per item
+     - Total calculated automatically
+     - Can add multiple items
+   - **Tax Rate**: Percentage (default 5%)
+   - **Discount**: Optional discount amount
+   - **Payment Method**: Cash, Bank Transfer, or Credit Account
+   - **Notes**: Any additional information about the sale
+
+4. Review the totals (subtotal, tax, discount, final amount)
+5. Click **"💾 Save Sale Record"**
+
+**What Happens:**
+- Order is created with status "completed" 
+- Backdated to the actual sale time
+- Appears in reports for that date
+- Contributes to revenue and statistics
+- Activity is logged for audit trail
+- Order number generated with "MANUAL-" prefix
+
+**Example Use Cases:**
+- **Breakfast service**: System was down during morning rush, record all sales later
+- **Power outage**: Had manual bills during outage, enter them when power returns
+- **Cash sales**: Multiple small cash transactions recorded in batch
+- **Missing data**: Found old receipts that weren't entered
+- **External events**: Catering or delivery sales that happened outside the system
+
+**Features:**
+- ✅ Backdate sales to any date/time
+- ✅ Multiple items per sale
+- ✅ Automatic tax and discount calculations
+- ✅ All payment methods supported
+- ✅ Validation ensures data accuracy
+- ✅ Audit trail via activity logs
+- ✅ Appears in all reports and statistics
+
+**Important Notes:**
+- Manual sales do NOT affect inventory (since the sale already happened)
+- Use appropriate date/time to ensure accurate reports
+- Include notes to explain why it's a manual entry
+- Double-check amounts before saving
+- Order numbers start with "MANUAL-" for easy identification
 
 ---
 

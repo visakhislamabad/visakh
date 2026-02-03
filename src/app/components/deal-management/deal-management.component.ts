@@ -57,6 +57,8 @@ export class DealManagementComponent implements OnInit {
   async loadDeals(): Promise<void> {
     try {
       this.deals = await this.db.getDeals();
+      // Sort deals alphabetically by name
+      this.deals.sort((a, b) => a.name.localeCompare(b.name));
     } catch (error) {
       console.error('Error loading deals:', error);
     }

@@ -55,6 +55,10 @@ export class PosComponent implements OnInit {
   categories: Category[] = [];
   
   isLoading: boolean = false;
+  
+  // Bill Preview Modal
+  showBillPreviewModal: boolean = false;
+  previewOrder: Order | null = null;
 
   constructor(
     private db: DatabaseService,
@@ -90,6 +94,13 @@ export class PosComponent implements OnInit {
     this.isLoading = true;
     try {
       this.menuItems = await this.db.getActiveMenuItems();
+      // Sort menu items by category, then by name
+      this.menuItems.sort((a, b) => {
+        if (a.category === b.category) {
+          return a.name.localeCompare(b.name);
+        }
+        return a.category.localeCompare(b.category);
+      });
       this.applyFilters();
     } catch (error) {
       console.error('Error loading menu items:', error);
@@ -101,6 +112,8 @@ export class PosComponent implements OnInit {
   async loadDeals(): Promise<void> {
     try {
       this.deals = await this.db.getActiveDeals();
+      // Sort deals alphabetically by name
+      this.deals.sort((a, b) => a.name.localeCompare(b.name));
       this.activeDeals = this.deals;
     } catch (error) {
       console.error('Error loading deals:', error);
@@ -323,25 +336,80 @@ export class PosComponent implements OnInit {
 
   async completeSettlement(): Promise<void> {
     if (!this.selectedBillOrder?.id) return;
+    
+    // Pass reference directly and add payment method
+    this.selectedBillOrder.paymentMethod = this.paymentMethod;
+    
+    // Pre-convert Firestore Timestamp to Date if needed
+    if (this.selectedBillOrder.createdAt && typeof this.selectedBillOrder.createdAt === 'object' && 'toDate' in this.selectedBillOrder.createdAt) {
+      this.selectedBillOrder.createdAt = (this.selectedBillOrder.createdAt as any).toDate();
+    }
+    
+    this.previewOrder = this.selectedBillOrder;
+    
+    // Show bill preview modal
+    this.showBillPreviewModal = true;
+  }
+  
+  async printAndCompleteSettlement(): Promise<void> {
+    if (!this.previewOrder?.id) return;
+    
     this.isLoading = true;
     try {
       // Deduct inventory for order items
-      await this.deductInventoryForOrder(this.selectedBillOrder);
+      await this.deductInventoryForOrder(this.previewOrder);
       
       // Mark order completed with payment method
-      await this.db.updateOrder(this.selectedBillOrder.id, { 
+      await this.db.updateOrder(this.previewOrder.id, { 
         status: 'completed',
-        paymentMethod: this.paymentMethod,
+        paymentMethod: this.previewOrder.paymentMethod,
         completedAt: new Date()
       });
       
-      // Refresh lists and clear selection
+      // Print the bill
+      this.printThermalBill(this.previewOrder);
+      
+      // Close modal and refresh lists
+      this.closeBillPreview();
       await this.loadReadyOrders();
       this.selectedBillOrder = null;
       this.tenderedAmount = 0;
       this.paymentMethod = 'cash'; // Reset to default
       this.isEditingDiscount = false;
-      alert('✅ Payment completed. Table reset to free.');
+      
+      alert(`✅ Payment completed! Total: ${this.previewOrder.totalAmount.toFixed(0)} PKR\nBill sent to printer.\nTable reset to free.`);
+    } catch (error) {
+      console.error('Error completing settlement:', error);
+      alert('❌ Failed to complete payment');
+    } finally {
+      this.isLoading = false;
+    }
+  }
+  
+  async completeSettlementWithoutPrint(): Promise<void> {
+    if (!this.previewOrder?.id) return;
+    
+    this.isLoading = true;
+    try {
+      // Deduct inventory for order items
+      await this.deductInventoryForOrder(this.previewOrder);
+      
+      // Mark order completed with payment method
+      await this.db.updateOrder(this.previewOrder.id, { 
+        status: 'completed',
+        paymentMethod: this.previewOrder.paymentMethod,
+        completedAt: new Date()
+      });
+      
+      // Close modal and refresh lists
+      this.closeBillPreview();
+      await this.loadReadyOrders();
+      this.selectedBillOrder = null;
+      this.tenderedAmount = 0;
+      this.paymentMethod = 'cash'; // Reset to default
+      this.isEditingDiscount = false;
+      
+      alert(`✅ Payment completed! Total: ${this.previewOrder.totalAmount.toFixed(0)} PKR\nTable reset to free.`);
     } catch (error) {
       console.error('Error completing settlement:', error);
       alert('❌ Failed to complete payment');
@@ -527,23 +595,259 @@ export class PosComponent implements OnInit {
       return;
     }
 
+    // Create preview order but don't save yet
+    this.previewOrder = this.createOrder('completed');
+    this.previewOrder.paymentMethod = this.paymentMethod;
+    
+    // Show bill preview modal
+    this.showBillPreviewModal = true;
+  }
+  
+  closeBillPreview(): void {
+    this.showBillPreviewModal = false;
+    this.previewOrder = null;
+    // If we were in settlement mode, keep the settlement panel open
+    // Otherwise the user can continue with their current action
+  }
+  
+  formatOrderDate(date: any): string {
+    let d: Date;
+    
+    // Handle Firestore Timestamp
+    if (date && typeof date === 'object' && 'toDate' in date) {
+      d = date.toDate();
+    } 
+    // Handle Date object
+    else if (date instanceof Date) {
+      d = date;
+    } 
+    // Handle string or number timestamp
+    else {
+      d = new Date(date);
+    }
+    
+    // Return formatted date
+    return d.toLocaleString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  }
+  
+  async printAndComplete(): Promise<void> {
+    if (!this.previewOrder) return;
+    
     this.isLoading = true;
     try {
-      const order = this.createOrder('completed');
-      order.paymentMethod = this.paymentMethod; // Add payment method
-      await this.db.createOrder(order);
+      // Save the order
+      await this.db.createOrder(this.previewOrder);
       
       // Deduct prepared items from inventory if linked
       await this.deductPreparedItems();
       
-      alert(`Payment successful! Total: ${this.getTotal().toFixed(0)} PKR\nPayment: ${this.paymentMethod === 'cash' ? 'Cash' : 'Bank Transfer'}`);
+      // Print the bill
+      this.printThermalBill(this.previewOrder);
+      
+      // Close modal and clear cart
+      this.closeBillPreview();
       this.clearCart();
       this.paymentMethod = 'cash'; // Reset to default
+      
+      alert(`Payment successful! Total: ${this.previewOrder.totalAmount.toFixed(0)} PKR\nBill sent to printer.`);
     } catch (error) {
       console.error('Error processing payment:', error);
       alert('Error processing payment');
     } finally {
       this.isLoading = false;
+    }
+  }
+  
+  async completeWithoutPrint(): Promise<void> {
+    if (!this.previewOrder) return;
+    
+    this.isLoading = true;
+    try {
+      // Save the order
+      await this.db.createOrder(this.previewOrder);
+      
+      // Deduct prepared items from inventory if linked
+      await this.deductPreparedItems();
+      
+      // Close modal and clear cart
+      this.closeBillPreview();
+      this.clearCart();
+      this.paymentMethod = 'cash'; // Reset to default
+      
+      alert(`Payment successful! Total: ${this.previewOrder.totalAmount.toFixed(0)} PKR`);
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      alert('Error processing payment');
+    } finally {
+      this.isLoading = false;
+    }
+  }
+  
+  printThermalBill(order: Order): void {
+    // Create thermal printer-optimized HTML (3-4 inches wide)
+    const items = order.items.map(item => `
+      <tr>
+        <td>${item.menuItemName}</td>
+        <td style="text-align: right;">${item.quantity}</td>
+        <td style="text-align: right;">${item.price.toFixed(0)}</td>
+        <td style="text-align: right;">${item.totalPrice.toFixed(0)}</td>
+      </tr>
+    `).join('');
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Bill - ${order.orderNumber}</title>
+        <style>
+          @media print {
+            @page {
+              size: 80mm auto;
+              margin: 0;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+            }
+          }
+          body {
+            font-family: 'Courier New', monospace;
+            width: 80mm;
+            margin: 0 auto;
+            padding: 5mm;
+            font-size: 12px;
+            line-height: 1.4;
+          }
+          h1 {
+            text-align: center;
+            font-size: 18px;
+            margin: 5px 0;
+            font-weight: bold;
+          }
+          .center {
+            text-align: center;
+          }
+          .divider {
+            border-top: 1px dashed #000;
+            margin: 8px 0;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0;
+          }
+          th, td {
+            padding: 3px 2px;
+            text-align: left;
+          }
+          th {
+            border-bottom: 1px solid #000;
+            font-weight: bold;
+          }
+          .total-section {
+            margin-top: 10px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+          }
+          .total-final {
+            font-weight: bold;
+            font-size: 14px;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            margin-top: 5px;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 11px;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>VISAKH</h1>
+        <div class="center">Restaurant Bill</div>
+        <div class="divider"></div>
+        
+        <div><strong>Order:</strong> ${order.orderNumber}</div>
+        <div><strong>Date:</strong> ${new Date().toLocaleString()}</div>
+        <div><strong>Type:</strong> ${order.isTakeaway ? 'Takeaway' : 'Dine-in - Table ' + order.tableNumber}</div>
+        ${order.customerName ? `<div><strong>Customer:</strong> ${order.customerName}</div>` : ''}
+        <div><strong>Payment:</strong> ${order.paymentMethod === 'cash' ? 'Cash' : order.paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'Credit Account'}</div>
+        
+        <div class="divider"></div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="text-align: right;">Qty</th>
+              <th style="text-align: right;">Price</th>
+              <th style="text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items}
+          </tbody>
+        </table>
+        
+        <div class="divider"></div>
+        
+        <div class="total-section">
+          <div class="total-row">
+            <span>Subtotal:</span>
+            <span>${order.subtotal.toFixed(0)} PKR</span>
+          </div>
+          <div class="total-row">
+            <span>Tax:</span>
+            <span>${order.tax.toFixed(0)} PKR</span>
+          </div>
+          ${order.discount > 0 ? `
+          <div class="total-row">
+            <span>Discount:</span>
+            <span>-${order.discount.toFixed(0)} PKR</span>
+          </div>
+          ` : ''}
+          <div class="total-row total-final">
+            <span>TOTAL:</span>
+            <span>${order.totalAmount.toFixed(0)} PKR</span>
+          </div>
+        </div>
+        
+        <div class="divider"></div>
+        <div class="footer">
+          <div>Thank you for your visit!</div>
+          <div>Please visit again</div>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    // Open print window
+    const printWindow = window.open('', '_blank', 'width=300,height=600');
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      
+      // Wait for content to load then print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          // Auto-close after printing
+          setTimeout(() => printWindow.close(), 500);
+        }, 250);
+      };
     }
   }
 

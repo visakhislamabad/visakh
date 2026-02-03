@@ -13,6 +13,7 @@
         <input type="date" [value]="endDate" (input)="endDate = $any($event.target).value" />
       </div>
       <button class="btn btn-primary" (click)="loadReports()">Apply Filter</button>
+      <button class="btn btn-success" (click)="openManualSaleModal()">➕ Add Manual Sale</button>
       <button class="btn btn-export" (click)="exportToPDF()">📄 Export to PDF</button>
       <button class="btn btn-danger" (click)="clearRecords()">🗑️ Clear Records</button>
     </div>
@@ -188,5 +189,139 @@
         </tr>
       </tbody>
     </table>
+  </div>
+</div>
+
+<!-- Manual Sale Entry Modal -->
+<div class="modal-overlay" *ngIf="showManualSaleModal" (click)="closeManualSaleModal()">
+  <div class="modal-content manual-sale-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Add Manual Sale Record</h2>
+      <button class="close-btn" (click)="closeManualSaleModal()">×</button>
+    </div>
+    
+    <div class="modal-body">
+      <p class="help-text">
+        Use this form to record sales that occurred when the system was unavailable.
+        Enter the date/time, items, and payment details.
+      </p>
+      
+      <!-- Sale Date and Time -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>Sale Date: *</label>
+          <input type="date" [(ngModel)]="manualSale.date" required />
+        </div>
+        <div class="form-group">
+          <label>Sale Time: *</label>
+          <input type="time" [(ngModel)]="manualSale.time" required />
+        </div>
+      </div>
+
+      <!-- Order Type -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>Order Type: *</label>
+          <select [(ngModel)]="manualSale.isTakeaway">
+            <option [value]="true">Takeaway</option>
+            <option [value]="false">Dine-in</option>
+          </select>
+        </div>
+        <div class="form-group" *ngIf="!manualSale.isTakeaway">
+          <label>Table Number:</label>
+          <input type="text" [(ngModel)]="manualSale.tableNumber" placeholder="e.g., T-5" />
+        </div>
+      </div>
+
+      <!-- Customer Name -->
+      <div class="form-group">
+        <label>Customer Name: (Optional)</label>
+        <input type="text" [(ngModel)]="manualSale.customerName" placeholder="Enter customer name" />
+      </div>
+
+      <!-- Items Section -->
+      <div class="items-section">
+        <h3>Sale Items</h3>
+        <div class="item-entry" *ngFor="let item of manualSale.items; let i = index">
+          <div class="form-row">
+            <div class="form-group flex-2">
+              <label>Item Name: *</label>
+              <input type="text" [(ngModel)]="item.name" placeholder="e.g., Breakfast" required />
+            </div>
+            <div class="form-group flex-1">
+              <label>Quantity: *</label>
+              <input type="number" [(ngModel)]="item.quantity" min="1" (input)="calculateManualItemTotal(i)" required />
+            </div>
+            <div class="form-group flex-1">
+              <label>Price: *</label>
+              <input type="number" [(ngModel)]="item.price" min="0" step="0.01" (input)="calculateManualItemTotal(i)" required />
+            </div>
+            <div class="form-group flex-1">
+              <label>Total:</label>
+              <input type="number" [(ngModel)]="item.total" readonly />
+            </div>
+            <div class="form-group-btn">
+              <button class="btn-remove" (click)="removeManualItem(i)" *ngIf="manualSale.items.length > 1">🗑️</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-secondary" (click)="addManualItem()">➕ Add Item</button>
+      </div>
+
+      <!-- Tax and Discount -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tax Rate (%):</label>
+          <input type="number" [(ngModel)]="manualSale.taxRate" min="0" max="100" step="0.1" (input)="calculateManualTotals()" />
+        </div>
+        <div class="form-group">
+          <label>Discount Amount:</label>
+          <input type="number" [(ngModel)]="manualSale.discount" min="0" step="0.01" (input)="calculateManualTotals()" />
+        </div>
+      </div>
+
+      <!-- Totals Display -->
+      <div class="totals-section">
+        <div class="total-row">
+          <span>Subtotal:</span>
+          <span class="total-value">{{ manualSale.subtotal.toFixed(2) }} PKR</span>
+        </div>
+        <div class="total-row">
+          <span>Tax ({{ manualSale.taxRate }}%):</span>
+          <span class="total-value">{{ manualSale.tax.toFixed(2) }} PKR</span>
+        </div>
+        <div class="total-row" *ngIf="manualSale.discount > 0">
+          <span>Discount:</span>
+          <span class="total-value">-{{ manualSale.discount.toFixed(2) }} PKR</span>
+        </div>
+        <div class="total-row total-final">
+          <span>Total Amount:</span>
+          <span class="total-value">{{ manualSale.totalAmount.toFixed(2) }} PKR</span>
+        </div>
+      </div>
+
+      <!-- Payment Method -->
+      <div class="form-group">
+        <label>Payment Method: *</label>
+        <select [(ngModel)]="manualSale.paymentMethod">
+          <option value="cash">💵 Cash</option>
+          <option value="bank_transfer">🏦 Bank Transfer</option>
+          <option value="credit_account">📝 Credit Account</option>
+        </select>
+      </div>
+
+      <!-- Notes -->
+      <div class="form-group">
+        <label>Notes: (Optional)</label>
+        <textarea [(ngModel)]="manualSale.notes" rows="3" placeholder="Any additional notes about this sale..."></textarea>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeManualSaleModal()">Cancel</button>
+      <button class="btn btn-success" (click)="saveManualSale()" [disabled]="!isManualSaleValid()">
+        💾 Save Sale Record
+      </button>
+    </div>
   </div>
 </div>

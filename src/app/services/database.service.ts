@@ -528,7 +528,7 @@ export class DatabaseService {
         currency: 'PKR',
         currencyPosition: 'before',
         dateFormat: 'MM/DD/YYYY',
-        taxRate: 5,
+        taxRate: 0,
         restaurantName: 'My Restaurant'
       };
     }
