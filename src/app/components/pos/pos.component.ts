@@ -732,7 +732,8 @@ export class PosComponent implements OnInit {
               }
             }
             body {
-              font-family: 'Courier New', monospace;
+              font-family: Helvetica, Arial, sans-serif;
+              color: #000;
               width: 80mm;
               margin: 0 auto;
               padding: 5mm;
@@ -931,7 +932,8 @@ export class PosComponent implements OnInit {
             }
           }
           body {
-            font-family: 'Courier New', monospace;
+            font-family: Helvetica, Arial, sans-serif;
+            color: #000;
             width: 80mm;
             margin: 0 auto;
             padding: 5mm;
