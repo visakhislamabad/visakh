@@ -185,8 +185,12 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
             h1 {
               text-align: center;
               font-size: 18px;
-              margin: 0 0 4px; /* reduce top margin for compact header */
+              margin: 0 0 12px; /* increased bottom margin for clearer spacing */
               font-weight: bold;
+            }
+            .end-dotted {
+              border-top: 1px dotted #000;
+              margin-top: 6px;
             }
             .center {
               text-align: center;
@@ -281,6 +285,7 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
           </div>
           
           <div class="divider"></div>
+          <div class="end-dotted"></div>
           <div class="footer">
             <div>Thank you for your visit!</div>
             <div>Please visit again</div>
@@ -323,8 +328,12 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
           h1 {
             text-align: center;
             font-size: 18px;
-            margin: 0 0 4px; /* reduce top margin for compact header */
+            margin: 0 0 12px; /* increased bottom margin for clearer spacing */
             font-weight: bold;
+          }
+          .end-dotted {
+            border-top: 1px dotted #000;
+            margin-top: 6px;
           }
           .center {
             text-align: center;
@@ -419,6 +428,7 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
         </div>
         
         <div class="divider"></div>
+        <div class="end-dotted"></div>
         <div class="footer">
           <div>Thank you for your visit!</div>
           <div>Please visit again</div>
