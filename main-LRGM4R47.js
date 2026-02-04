@@ -174,7 +174,8 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
               }
             }
             body {
-              font-family: 'Courier New', monospace;
+              font-family: Helvetica, Arial, sans-serif;
+              color: #000;
               width: 80mm;
               margin: 0 auto;
               padding: 5mm;
@@ -311,7 +312,8 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
             }
           }
           body {
-            font-family: 'Courier New', monospace;
+            font-family: Helvetica, Arial, sans-serif;
+            color: #000;
             width: 80mm;
             margin: 0 auto;
             padding: 5mm;
