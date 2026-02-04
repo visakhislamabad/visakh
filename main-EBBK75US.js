@@ -185,7 +185,7 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
             h1 {
               text-align: center;
               font-size: 18px;
-              margin: 5px 0;
+              margin: 0 0 4px; /* reduce top margin for compact header */
               font-weight: bold;
             }
             .center {
@@ -323,7 +323,7 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
           h1 {
             text-align: center;
             font-size: 18px;
-            margin: 5px 0;
+            margin: 0 0 4px; /* reduce top margin for compact header */
             font-weight: bold;
           }
           .center {
