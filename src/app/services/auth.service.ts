@@ -56,7 +56,7 @@ export class AuthService {
       
       // Redirect based on role
       console.log('Redirecting user with role:', this.currentUser.role);
-      if (this.currentUser?.role === 'admin') {
+      if (this.currentUser?.role === 'admin' || this.currentUser?.role === 'super_admin') {
         this.router.navigate(['/dashboard']);
       } else if (this.currentUser?.role === 'cashier') {
         this.router.navigate(['/pos']);
@@ -110,6 +110,10 @@ export class AuthService {
 
   // Check if user has a specific role
   hasRole(role: string): boolean {
+    // Super admin has access to everything, including admin-level features
+    if (this.currentUser?.role === 'super_admin' && role === 'admin') {
+      return true;
+    }
     return this.currentUser?.role === role;
   }
 

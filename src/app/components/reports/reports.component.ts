@@ -38,7 +38,7 @@ interface ManualSale {
   styleUrl: './reports.component.css'
 })
 export class ReportsComponent implements OnInit {
-  activeTab: 'sales' | 'expenses' | 'profit' | 'items' = 'sales';
+  activeTab: 'sales' | 'expenses' | 'profit' | 'items' | 'archives' = 'sales';
   
   startDate: string = '';
   endDate: string = '';
@@ -67,9 +67,24 @@ export class ReportsComponent implements OnInit {
   // Item Performance
   itemPerformance: { name: string; sold: number; revenue: number }[] = [];
 
+  // Archived Records
+  archivedOrders: Order[] = [];
+  archivedExpenses: Purchase[] = [];
+  archivedPayments: any[] = [];
+
   // Manual Sale Entry
   showManualSaleModal: boolean = false;
   manualSale: ManualSale = this.getEmptyManualSale();
+
+  // Bill Editing
+  showEditBillModal: boolean = false;
+  editBillOrder: Order | null = null;
+  editBillItems: OrderItem[] = [];
+  allMenuItems: any[] = [];
+
+  get isSuperAdmin(): boolean {
+    return this.authService.currentUser?.role === 'super_admin';
+  }
 
   constructor(private db: DatabaseService, private authService: AuthService) {}
 
@@ -81,7 +96,31 @@ export class ReportsComponent implements OnInit {
     weekAgo.setDate(weekAgo.getDate() - 7);
     this.startDate = weekAgo.toISOString().split('T')[0];
     
+    // Load all menu items for editing
+    try {
+      this.allMenuItems = await this.db.getActiveMenuItems();
+    } catch (error) {
+      console.error('Error loading menu items:', error);
+    }
+    
     await this.loadReports();
+  }
+
+  switchTab(tab: 'sales' | 'expenses' | 'profit' | 'items' | 'archives'): void {
+    this.activeTab = tab;
+    if (tab === 'archives') {
+      this.loadArchivedRecords();
+    }
+  }
+
+  async loadArchivedRecords(): Promise<void> {
+    try {
+      this.archivedOrders = await this.db.getArchivedOrders();
+      this.archivedExpenses = await this.db.getArchivedPurchases();
+      this.archivedPayments = await this.db.getArchivedCustomerPayments();
+    } catch (error) {
+      console.error('Error loading archived records:', error);
+    }
   }
 
   async loadReports(): Promise<void> {
@@ -149,10 +188,6 @@ export class ReportsComponent implements OnInit {
     this.itemPerformance = Array.from(itemMap.entries())
       .map(([name, data]) => ({ name, sold: data.sold, revenue: data.revenue }))
       .sort((a, b) => b.revenue - a.revenue);
-  }
-
-  switchTab(tab: 'sales' | 'expenses' | 'items'): void {
-    this.activeTab = tab;
   }
 
   formatDate(date: any): string {
@@ -347,53 +382,51 @@ export class ReportsComponent implements OnInit {
     const bankCount = payments.filter((p: any) => p.paymentMode === 'bank_transfer').length;
     const checkCount = payments.filter((p: any) => p.paymentMode === 'check').length;
 
-    const confirmMessage = `Are you sure you want to delete ALL records for ${dateRange}?\n\nThis action cannot be undone!\n\nRecords to be deleted:\n- ${this.salesOrders.length} sales orders\n- ${this.expenses.length} expense records\n- ${payments.length} customer payments (Cash: ${cashCount}, Bank: ${bankCount}, Check: ${checkCount})`;
+    const confirmMessage = `Are you sure you want to archive ALL records for ${dateRange}?\n\nRecords will be moved to archives and can be retrieved if needed.\n\nRecords to be archived:\n- ${this.salesOrders.length} sales orders\n- ${this.expenses.length} expense records\n- ${payments.length} customer payments (Cash: ${cashCount}, Bank: ${bankCount}, Check: ${checkCount})`;
     
     if (!confirm(confirmMessage)) {
       return;
     }
     
-    // Double confirmation for safety
-    if (!confirm('Final confirmation: This will permanently delete all selected records. Continue?')) {
-      return;
-    }
-    
     try {
-      let deletedOrders = 0;
-      let deletedExpenses = 0;
-      let deletedPayments = 0;
+      let archivedOrders = 0;
+      let archivedExpenses = 0;
+      let archivedPayments = 0;
       
-      // Delete all sales orders
+      // Archive all sales orders
       for (const order of this.salesOrders) {
         if (order.id) {
+          await this.db.archiveOrder(order);
           await this.db.deleteOrder(order.id);
-          deletedOrders++;
+          archivedOrders++;
         }
       }
       
-      // Delete all expenses
+      // Archive all expenses
       for (const expense of this.expenses) {
         if (expense.id) {
+          await this.db.archivePurchase(expense);
           await this.db.deletePurchase(expense.id);
-          deletedExpenses++;
+          archivedExpenses++;
         }
       }
 
-      // Delete all customer payments in range and reverse balances
+      // Archive all customer payments in range and reverse balances
       for (const p of payments) {
         if (p.id) {
+          await this.db.archiveCustomerPayment(p);
           await this.db.deleteCustomerPayment(p.id);
-          deletedPayments++;
+          archivedPayments++;
         }
       }
       
-      alert(`Records cleared successfully!\n\nDeleted:\n- ${deletedOrders} sales orders\n- ${deletedExpenses} expense records\n- ${deletedPayments} customer payments`);
+      alert(`Records archived successfully!\n\nArchived:\n- ${archivedOrders} sales orders\n- ${archivedExpenses} expense records\n- ${archivedPayments} customer payments\n\nThese records have been moved to archives.`);
       
       // Reload reports to refresh the view
       await this.loadReports();
     } catch (error) {
-      console.error('Error clearing records:', error);
-      alert('Error clearing records. Please try again.');
+      console.error('Error archiving records:', error);
+      alert('Error archiving records. Please try again.');
     }
   }
 
@@ -402,12 +435,20 @@ export class ReportsComponent implements OnInit {
       ? (order.createdAt as any).toDate()
       : new Date(order.createdAt as any);
     
+    const edited = order.editedAt ? ((order.editedAt && typeof order.editedAt === 'object' && 'toDate' in order.editedAt)
+      ? (order.editedAt as any).toDate()
+      : new Date(order.editedAt as any)) : null;
+    
     const rows = (order.items || []).map(i =>
       `<tr><td>${i.menuItemName}</td><td>${i.quantity}</td><td>${i.price.toFixed(0)} PKR</td><td>${i.totalPrice.toFixed(0)} PKR</td></tr>`
     ).join('');
     
     const discountLine = order.discount > 0 
       ? `<p>Discount: -${order.discount.toFixed(0)} PKR${order.discountType === 'percentage' ? ` (${order.discountValue}%)` : ''}</p>`
+      : '';
+    
+    const editedLine = edited
+      ? `<p style="font-style:italic;font-size:0.9em;color:#666;">Edited: ${edited.toLocaleString()} by ${order.editedBy || 'Unknown'}</p>`
       : '';
     
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Order ${order.orderNumber}</title>
@@ -422,6 +463,7 @@ export class ReportsComponent implements OnInit {
       <p>Customer: ${order.customerName || '-'}</p>
       <p>Status: ${order.status}</p>
       <p>Created: ${created.toLocaleString()}</p>
+      ${editedLine}
       <table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>
       <p>Subtotal: ${order.subtotal.toFixed(0)} PKR</p>
       <p>Tax: ${order.tax.toFixed(0)} PKR</p>
@@ -601,5 +643,317 @@ export class ReportsComponent implements OnInit {
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 1000);
     return `MANUAL-${timestamp}-${random}`;
+  }
+
+  // ============ BILL EDITING METHODS ============
+
+  openEditBillModal(order: Order): void {
+    this.editBillOrder = { ...order };
+    this.editBillItems = order.items.map(item => ({ ...item }));
+    this.showEditBillModal = true;
+  }
+
+  closeEditBillModal(): void {
+    this.showEditBillModal = false;
+    this.editBillOrder = null;
+    this.editBillItems = [];
+  }
+
+  addItemToBill(): void {
+    if (!this.editBillItems) return;
+    this.editBillItems.push({
+      menuItemId: '',
+      menuItemName: '',
+      quantity: 1,
+      price: 0,
+      totalPrice: 0
+    });
+  }
+
+  removeItemFromBill(index: number): void {
+    if (this.editBillItems && this.editBillItems.length > 1) {
+      this.editBillItems.splice(index, 1);
+      this.recalculateBillTotals();
+    }
+  }
+
+  getMenuItemName(menuItemId: string): string {
+    const item = this.allMenuItems.find(m => m.id === menuItemId);
+    return item ? item.name : '';
+  }
+
+  selectMenuItem(index: number, menuItemId: string): void {
+    if (!this.editBillItems || !this.editBillItems[index]) return;
+    
+    const menuItem = this.allMenuItems.find(m => m.id === menuItemId);
+    if (menuItem) {
+      this.editBillItems[index].menuItemId = menuItem.id!;
+      this.editBillItems[index].menuItemName = menuItem.name;
+      this.editBillItems[index].price = menuItem.price;
+      this.editBillItems[index].totalPrice = menuItem.price * this.editBillItems[index].quantity;
+      this.recalculateBillTotals();
+    }
+  }
+
+  updateItemQuantity(index: number): void {
+    if (!this.editBillItems || !this.editBillItems[index]) return;
+    const item = this.editBillItems[index];
+    item.totalPrice = item.quantity * item.price;
+    this.recalculateBillTotals();
+  }
+
+  recalculateBillTotals(): void {
+    if (!this.editBillOrder || !this.editBillItems) return;
+
+    // Calculate subtotal
+    const subtotal = this.editBillItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    
+    // Calculate tax (assume uniform tax rate from first item or 0)
+    const taxRate = this.editBillOrder.tax > 0 ? (this.editBillOrder.tax / this.editBillOrder.subtotal) * 100 : 0;
+    const tax = (subtotal * taxRate) / 100;
+
+    // Apply discount if exists
+    const discountAmount = this.editBillOrder.discount || 0;
+
+    this.editBillOrder.subtotal = subtotal;
+    this.editBillOrder.tax = tax;
+    this.editBillOrder.totalAmount = subtotal + tax - discountAmount;
+  }
+
+  async saveAndPrintBill(): Promise<void> {
+    if (!this.editBillOrder || !this.editBillOrder.id || !this.editBillItems) {
+      alert('Invalid bill data');
+      return;
+    }
+
+    // Validate items
+    const validItems = this.editBillItems.filter(item => item.menuItemName && item.quantity > 0 && item.price > 0);
+    if (validItems.length === 0) {
+      alert('Please add at least one valid item to the bill');
+      return;
+    }
+
+    try {
+      // Update order with new items and totals
+      this.editBillOrder.items = validItems;
+      
+      // Set edit timestamp and user
+      const currentUser = this.authService.currentUser;
+      this.editBillOrder.editedAt = new Date();
+      this.editBillOrder.editedBy = currentUser?.name || 'Unknown User';
+      
+      await this.db.updateOrder(this.editBillOrder.id, {
+        items: validItems,
+        subtotal: this.editBillOrder.subtotal,
+        tax: this.editBillOrder.tax,
+        totalAmount: this.editBillOrder.totalAmount,
+        discount: this.editBillOrder.discount,
+        editedAt: this.editBillOrder.editedAt,
+        editedBy: this.editBillOrder.editedBy
+      });
+
+      alert('✅ Bill updated successfully!');
+      
+      // Print the updated bill
+      this.printUpdatedBill(this.editBillOrder);
+      
+      // Close modal and reload
+      this.closeEditBillModal();
+      await this.loadReports();
+    } catch (error) {
+      console.error('Error saving bill:', error);
+      alert('❌ Failed to update bill');
+    }
+  }
+
+  printUpdatedBill(order: Order): void {
+    // Create thermal printer-optimized HTML (same as POS)
+    const items = order.items.map(item => `
+      <tr>
+        <td>${item.menuItemName}</td>
+        <td style="text-align: right;">${item.quantity}</td>
+        <td style="text-align: right;">${item.price.toFixed(0)}</td>
+        <td style="text-align: right;">${item.totalPrice.toFixed(0)}</td>
+      </tr>
+    `).join('');
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Bill - ${order.orderNumber}</title>
+        <style>
+          @media print {
+            @page {
+              size: 80mm auto;
+              margin: 0;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+            }
+          }
+          body {
+            font-family: Helvetica, Arial, sans-serif;
+            color: #000;
+            width: 80mm;
+            margin: 0 auto;
+            padding: 5mm;
+            font-size: 12px;
+            line-height: 1.4;
+          }
+          h1 {
+            text-align: center;
+            font-size: 18px;
+            margin: 0 0 12px;
+            font-weight: bold;
+          }
+          .end-dotted {
+            border-top: 1px dotted #000;
+            margin-top: 14px;
+          }
+          .qr {
+            text-align: center;
+            margin-top: 8px;
+          }
+          .qr img {
+            width: 64px;
+            height: 64px;
+            display: block;
+            margin: 0 auto;
+          }
+          .center {
+            text-align: center;
+          }
+          .divider {
+            border-top: 1px dashed #000;
+            margin: 8px 0;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0;
+          }
+          th, td {
+            padding: 3px 2px;
+            text-align: left;
+          }
+          th {
+            border-bottom: 1px solid #000;
+            font-weight: bold;
+          }
+          .total-section {
+            margin-top: 10px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+          }
+          .total-final {
+            font-weight: bold;
+            font-size: 14px;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            margin-top: 5px;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 11px;
+          }
+          .updated {
+            text-align: center;
+            margin-top: 5px;
+            font-size: 9px;
+            font-style: italic;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>VISAKH</h1>
+        <div class="center">Restaurant Bill</div>
+        <div class="divider"></div>
+        
+        <div><strong>Order:</strong> ${order.orderNumber}</div>
+        <div><strong>Date:</strong> ${new Date(order.createdAt).toLocaleString()}</div>
+        <div><strong>Type:</strong> ${order.isTakeaway ? 'Takeaway' : 'Dine-in - Table ' + order.tableNumber}</div>
+        ${order.customerName ? `<div><strong>Customer:</strong> ${order.customerName}</div>` : ''}
+        <div><strong>Payment:</strong> ${order.paymentMethod === 'cash' ? 'Cash' : order.paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'Credit Account'}</div>
+        
+        <div class="divider"></div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="text-align: right;">Qty</th>
+              <th style="text-align: right;">Price</th>
+              <th style="text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items}
+          </tbody>
+        </table>
+        
+        <div class="divider"></div>
+        
+        <div class="total-section">
+          <div class="total-row">
+            <span>Subtotal:</span>
+            <span>${order.subtotal.toFixed(0)} PKR</span>
+          </div>
+          <div class="total-row">
+            <span>Tax:</span>
+            <span>${order.tax.toFixed(0)} PKR</span>
+          </div>
+          ${order.discount > 0 ? `
+          <div class="total-row">
+            <span>Discount:</span>
+            <span>-${order.discount.toFixed(0)} PKR</span>
+          </div>
+          ` : ''}
+          <div class="total-row total-final">
+            <span>TOTAL:</span>
+            <span>${order.totalAmount.toFixed(0)} PKR</span>
+          </div>
+        </div>
+        
+        <div class="divider"></div>
+        <div class="footer">
+          <div>Thank you for your visit!</div>
+          <div>Please visit again</div>
+        </div>
+        <div class="qr">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fwww.tiktok.com%2F%40visakh.islamabad%3F_r%3D1%26_t%3DZS-93eJaTz7maa" alt="TikTok QR">
+          <div style="font-size:10px;margin-top:4px;">Follow us on TikTok</div>
+        </div>
+        <div style="text-align: center; margin-top: 8px; font-size: 10px;">
+          WhatsApp: +92 318 0056561
+        </div>
+        <div class="end-dotted"></div>
+        <div class="updated">Bill updated and reprinted</div>
+      </body>
+      </html>
+    `;
+    
+    // Open print window
+    const printWindow = window.open('', '_blank', 'width=300,height=600');
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      
+      // Wait for content to load then print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          // Auto-close after printing
+          setTimeout(() => printWindow.close(), 500);
+        }, 250);
+      };
+    }
   }
 }

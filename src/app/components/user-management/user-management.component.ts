@@ -19,7 +19,16 @@ export class UserManagementComponent implements OnInit {
   currentUser: User = this.getEmptyUser();
   newPassword: string = '';
   
-  roles: UserRole[] = ['admin', 'cashier', 'chef', 'waiter'];
+  roles: UserRole[] = ['super_admin', 'admin', 'cashier', 'chef', 'waiter'];
+
+  get availableRoles(): UserRole[] {
+    // Only super_admin can see and assign super_admin role
+    if (this.authService.currentUser?.role === 'super_admin') {
+      return this.roles;
+    }
+    // Admin and others cannot see super_admin in the dropdown
+    return this.roles.filter(role => role !== 'super_admin');
+  }
 
   constructor(private db: DatabaseService, private authService: AuthService) {}
 
@@ -35,6 +44,15 @@ export class UserManagementComponent implements OnInit {
       role: 'cashier',
       isActive: true
     };
+  }
+
+  canManageUser(user: User): boolean {
+    // Super admin can manage everyone
+    if (this.authService.currentUser?.role === 'super_admin') {
+      return true;
+    }
+    // Admin cannot manage super_admin users
+    return user.role !== 'super_admin';
   }
 
   async loadUsers(): Promise<void> {
@@ -53,6 +71,10 @@ export class UserManagementComponent implements OnInit {
   }
 
   openEditModal(user: User): void {
+    if (!this.canManageUser(user)) {
+      alert('You do not have permission to edit this user.');
+      return;
+    }
     this.currentUser = { ...user };
     this.newPassword = '';
     this.isEditMode = true;
@@ -62,6 +84,12 @@ export class UserManagementComponent implements OnInit {
   async saveUser(): Promise<void> {
     if (!this.currentUser.name || !this.currentUser.email) {
       alert('Please fill in all required fields');
+      return;
+    }
+
+    // Prevent admin from creating super_admin users
+    if (this.currentUser.role === 'super_admin' && this.authService.currentUser?.role !== 'super_admin') {
+      alert('You do not have permission to create or modify super admin users.');
       return;
     }
 
@@ -112,6 +140,11 @@ export class UserManagementComponent implements OnInit {
 
   async toggleActive(user: User): Promise<void> {
     if (!user.id) return;
+    
+    if (!this.canManageUser(user)) {
+      alert('You do not have permission to change this user\'s status.');
+      return;
+    }
     
     try {
       await this.db.updateUser(user.id, { isActive: !user.isActive });

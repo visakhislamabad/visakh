@@ -261,6 +261,22 @@ export class DatabaseService {
     await deleteDoc(purchaseDoc);
   }
 
+  async archivePurchase(purchase: Purchase): Promise<string> {
+    const archivesRef = collection(this.firestore, 'archived_purchases');
+    const docRef = await addDoc(archivesRef, {
+      ...purchase,
+      archivedAt: Timestamp.now()
+    });
+    return docRef.id;
+  }
+
+  async getArchivedPurchases(): Promise<Purchase[]> {
+    const archivesRef = collection(this.firestore, 'archived_purchases');
+    const q = query(archivesRef, orderBy('archivedAt', 'desc'));
+    const snapshot = await this.inCtx(() => getDocs(q));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Purchase));
+  }
+
   // ============ SUPPLIERS ============
   async createSupplier(supplier: Supplier): Promise<string> {
     const suppliersRef = collection(this.firestore, 'suppliers');
@@ -358,6 +374,22 @@ export class DatabaseService {
   async deleteOrder(id: string): Promise<void> {
     const orderDoc = doc(this.firestore, `orders/${id}`);
     await deleteDoc(orderDoc);
+  }
+
+  async archiveOrder(order: Order): Promise<string> {
+    const archivesRef = collection(this.firestore, 'archived_orders');
+    const docRef = await addDoc(archivesRef, {
+      ...order,
+      archivedAt: Timestamp.now()
+    });
+    return docRef.id;
+  }
+
+  async getArchivedOrders(): Promise<Order[]> {
+    const archivesRef = collection(this.firestore, 'archived_orders');
+    const q = query(archivesRef, orderBy('archivedAt', 'desc'));
+    const snapshot = await this.inCtx(() => getDocs(q));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
   }
 
   async getTodayOrders(): Promise<Order[]> {
@@ -667,6 +699,22 @@ export class DatabaseService {
 
     // Finally, delete the payment record
     await deleteDoc(paymentDocRef);
+  }
+
+  async archiveCustomerPayment(payment: any): Promise<string> {
+    const archivesRef = collection(this.firestore, 'archived_customer_payments');
+    const docRef = await addDoc(archivesRef, {
+      ...payment,
+      archivedAt: Timestamp.now()
+    });
+    return docRef.id;
+  }
+
+  async getArchivedCustomerPayments(): Promise<any[]> {
+    const archivesRef = collection(this.firestore, 'archived_customer_payments');
+    const q = query(archivesRef, orderBy('archivedAt', 'desc'));
+    const snapshot = await this.inCtx(() => getDocs(q));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   }
 
   async getRecentCustomerPayments(limitCount: number): Promise<any[]> {

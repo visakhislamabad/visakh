@@ -15,7 +15,7 @@
       <button class="btn btn-primary" (click)="loadReports()">Apply Filter</button>
       <button class="btn btn-success" (click)="openManualSaleModal()">➕ Add Manual Sale</button>
       <button class="btn btn-export" (click)="exportToPDF()">📄 Export to PDF</button>
-      <button class="btn btn-danger" (click)="clearRecords()">🗑️ Clear Records</button>
+      <button *ngIf="isSuperAdmin" class="btn btn-danger" (click)="clearRecords()">🗑️ Clear Records</button>
     </div>
   </div>
 
@@ -92,6 +92,7 @@
     <button [class.active]="activeTab === 'sales'" (click)="switchTab('sales')">Sales Report</button>
     <button [class.active]="activeTab === 'expenses'" (click)="switchTab('expenses')">Expense Report</button>
     <button [class.active]="activeTab === 'items'" (click)="switchTab('items')">Item Performance</button>
+    <button *ngIf="isSuperAdmin" [class.active]="activeTab === 'archives'" (click)="switchTab('archives')">📦 Archives</button>
   </div>
 
   <!-- Sales Report Tab -->
@@ -111,7 +112,10 @@
       </thead>
       <tbody>
         <tr *ngFor="let order of salesOrders">
-          <td>{{ order.orderNumber }}</td>
+          <td>
+            {{ order.orderNumber }}
+            <span *ngIf="order.editedAt" style="color: #ff9800; font-size: 0.85em; margin-left: 4px;" title="Bill was edited on {{ formatDate(order.editedAt) }} by {{ order.editedBy }}">✏️</span>
+          </td>
           <td>{{ formatDate(order.createdAt) }}</td>
           <td>{{ order.isTakeaway ? 'Takeaway' : 'Table ' + order.tableNumber }}</td>
           <td>{{ order.items.length }} items</td>
@@ -127,6 +131,9 @@
           <td class="actions-col">
             <button class="btn-view-detail-text" (click)="viewOrderDetail(order)">
               View Details
+            </button>
+            <button class="btn-edit-text" (click)="openEditBillModal(order)" style="margin-left: 8px;">
+              ✏️ Edit Bill
             </button>
           </td>
         </tr>
@@ -186,6 +193,109 @@
         </tr>
         <tr *ngIf="itemPerformance.length === 0">
           <td colspan="4" class="no-data">No sales data available</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Archives Tab -->
+  <div *ngIf="activeTab === 'archives'" class="tab-content">
+    <h2>Archived Records</h2>
+    
+    <!-- Archived Orders -->
+    <h3 style="margin-top: 20px;">Archived Sales Orders ({{ archivedOrders.length }})</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Order #</th>
+          <th>Date</th>
+          <th>Table/Type</th>
+          <th>Items</th>
+          <th>Payment</th>
+          <th>Amount</th>
+          <th>Archived Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let order of archivedOrders">
+          <td>{{ order.orderNumber }}</td>
+          <td>{{ formatDate(order.createdAt) }}</td>
+          <td>{{ order.isTakeaway ? 'Takeaway' : 'Table ' + order.tableNumber }}</td>
+          <td>{{ order.items.length }} items</td>
+          <td>
+            <span class="payment-badge" [class.cash]="order.paymentMethod === 'cash' || !order.paymentMethod" 
+                  [class.bank]="order.paymentMethod === 'bank_transfer'"
+                  [class.credit]="order.paymentMethod === 'credit_account'">
+              {{ order.paymentMethod === 'bank_transfer' ? '🏦 Bank' : 
+                 order.paymentMethod === 'credit_account' ? '📝 Credit' : '💵 Cash' }}
+            </span>
+          </td>
+          <td>{{ order.totalAmount.toFixed(0) }} PKR</td>
+          <td>{{ formatDate($any(order).archivedAt) }}</td>
+        </tr>
+        <tr *ngIf="archivedOrders.length === 0">
+          <td colspan="7" class="no-data">No archived sales orders</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Archived Expenses -->
+    <h3 style="margin-top: 30px;">Archived Expenses ({{ archivedExpenses.length }})</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Supplier</th>
+          <th>Item</th>
+          <th>Quantity</th>
+          <th>Cost</th>
+          <th>Archived Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let expense of archivedExpenses">
+          <td>{{ expense.date | date:'short' }}</td>
+          <td>{{ expense.supplierName }}</td>
+          <td>{{ expense.inventoryItemName }}</td>
+          <td>{{ expense.quantity }} {{ expense.unit }}</td>
+          <td>{{ expense.totalCost.toFixed(0) }}</td>
+          <td>{{ formatDate($any(expense).archivedAt) }}</td>
+        </tr>
+        <tr *ngIf="archivedExpenses.length === 0">
+          <td colspan="6" class="no-data">No archived expenses</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Archived Customer Payments -->
+    <h3 style="margin-top: 30px;">Archived Customer Payments ({{ archivedPayments.length }})</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Customer</th>
+          <th>Amount</th>
+          <th>Payment Mode</th>
+          <th>Archived Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let payment of archivedPayments">
+          <td>{{ formatDate(payment.date) }}</td>
+          <td>{{ payment.customerName }}</td>
+          <td>{{ payment.amount?.toFixed(0) }} PKR</td>
+          <td>
+            <span class="payment-badge" [class.cash]="payment.paymentMode === 'cash'" 
+                  [class.bank]="payment.paymentMode === 'bank_transfer'"
+                  [class.credit]="payment.paymentMode === 'check'">
+              {{ payment.paymentMode === 'cash' ? '💵 Cash' : 
+                 payment.paymentMode === 'bank_transfer' ? '🏦 Bank' : '📝 Check' }}
+            </span>
+          </td>
+          <td>{{ formatDate($any(payment).archivedAt) }}</td>
+        </tr>
+        <tr *ngIf="archivedPayments.length === 0">
+          <td colspan="5" class="no-data">No archived customer payments</td>
         </tr>
       </tbody>
     </table>
@@ -321,6 +431,80 @@
       <button class="btn btn-secondary" (click)="closeManualSaleModal()">Cancel</button>
       <button class="btn btn-success" (click)="saveManualSale()" [disabled]="!isManualSaleValid()">
         💾 Save Sale Record
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Bill Modal -->
+<div class="modal-overlay" *ngIf="showEditBillModal" (click)="closeEditBillModal()">
+  <div class="modal-content edit-bill-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Edit Bill - {{ editBillOrder?.orderNumber }}</h2>
+      <button class="close-btn" (click)="closeEditBillModal()">×</button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="bill-edit-section" *ngIf="editBillOrder">
+        <!-- Bill Header Info -->
+        <div class="bill-header-info">
+          <p><strong>Order:</strong> {{ editBillOrder.orderNumber }}</p>
+          <p><strong>Original Date:</strong> {{ formatDate(editBillOrder.createdAt) }}</p>
+          <p *ngIf="editBillOrder.editedAt" style="font-style: italic; font-size: 0.9em; color: #666;"><strong>Last Edited:</strong> {{ formatDate(editBillOrder.editedAt) }} by {{ editBillOrder.editedBy }}</p>
+          <p><strong>Type:</strong> {{ editBillOrder.isTakeaway ? 'Takeaway' : 'Table ' + editBillOrder.tableNumber }}</p>
+          <p *ngIf="editBillOrder.customerName"><strong>Customer:</strong> {{ editBillOrder.customerName }}</p>
+        </div>
+
+        <!-- Items Section -->
+        <div class="items-section">
+          <h3>Bill Items</h3>
+          <div class="bill-items-list">
+            <div class="bill-item-row" *ngFor="let item of editBillItems; let i = index">
+              <div class="item-controls">
+                <select [(ngModel)]="item.menuItemId" (change)="selectMenuItem(i, $any($event.target).value)" class="item-select">
+                  <option value="">-- Select Item --</option>
+                  <option *ngFor="let menu of allMenuItems" [value]="menu.id">
+                    {{ menu.name }} ({{ menu.price }} PKR)
+                  </option>
+                </select>
+                <input type="number" [(ngModel)]="item.quantity" (change)="updateItemQuantity(i)" min="1" class="qty-input" placeholder="Qty" />
+                <input type="number" [(ngModel)]="item.price" (change)="updateItemQuantity(i)" min="0" class="price-input" placeholder="Price" />
+                <span class="item-total">= {{ item.totalPrice.toFixed(0) }} PKR</span>
+                <button class="btn-remove" (click)="removeItemFromBill(i)" [disabled]="editBillItems.length <= 1">🗑️</button>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-secondary" (click)="addItemToBill()" style="margin-top: 10px;">
+            ➕ Add Item
+          </button>
+        </div>
+
+        <!-- Totals Section -->
+        <div class="bill-totals">
+          <div class="total-row">
+            <span>Subtotal:</span>
+            <span>{{ editBillOrder.subtotal.toFixed(0) }} PKR</span>
+          </div>
+          <div class="total-row">
+            <span>Tax:</span>
+            <span>{{ editBillOrder.tax.toFixed(0) }} PKR</span>
+          </div>
+          <div class="total-row" *ngIf="editBillOrder.discount > 0">
+            <span>Discount:</span>
+            <span>-{{ editBillOrder.discount.toFixed(0) }} PKR</span>
+          </div>
+          <div class="total-row total-final">
+            <span>Total:</span>
+            <span>{{ editBillOrder.totalAmount.toFixed(0) }} PKR</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeEditBillModal()">Cancel</button>
+      <button class="btn btn-success" (click)="saveAndPrintBill()">
+        💾 Save & Print Bill
       </button>
     </div>
   </div>

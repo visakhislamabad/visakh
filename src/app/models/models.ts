@@ -1,5 +1,5 @@
 // User roles in the system
-export type UserRole = 'admin' | 'cashier' | 'chef' | 'waiter';
+export type UserRole = 'super_admin' | 'admin' | 'cashier' | 'chef' | 'waiter';
 
 // User interface
 export interface User {
@@ -159,6 +159,8 @@ export interface Order {
   startedCookingAt?: Date;
   readyAt?: Date;
   completedAt?: Date;
+  editedAt?: Date; // When the bill was last edited
+  editedBy?: string; // Name of user who last edited the bill
   cashierId: string;
   cashierName: string;
 }
