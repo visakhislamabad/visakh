@@ -743,8 +743,12 @@ export class PosComponent implements OnInit {
             h1 {
               text-align: center;
               font-size: 18px;
-              margin: 0 0 4px; /* reduce top margin for compact header */
+              margin: 0 0 12px; /* increased bottom margin for clearer spacing */
               font-weight: bold;
+            }
+            .end-dotted {
+              border-top: 1px dotted #000;
+              margin-top: 6px;
             }
             .center {
               text-align: center;
@@ -839,6 +843,7 @@ export class PosComponent implements OnInit {
           </div>
           
           <div class="divider"></div>
+          <div class="end-dotted"></div>
           <div class="footer">
             <div>Thank you for your visit!</div>
             <div>Please visit again</div>
@@ -943,8 +948,12 @@ export class PosComponent implements OnInit {
           h1 {
             text-align: center;
             font-size: 18px;
-            margin: 0 0 4px; /* reduce top margin for compact header */
+            margin: 0 0 12px; /* increased bottom margin for clearer spacing */
             font-weight: bold;
+          }
+          .end-dotted {
+            border-top: 1px dotted #000;
+            margin-top: 6px;
           }
           .center {
             text-align: center;
@@ -1039,6 +1048,7 @@ export class PosComponent implements OnInit {
         </div>
         
         <div class="divider"></div>
+        <div class="end-dotted"></div>
         <div class="footer">
           <div>Thank you for your visit!</div>
           <div>Please visit again</div>
