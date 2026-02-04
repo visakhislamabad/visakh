@@ -750,6 +750,16 @@ export class PosComponent implements OnInit {
               border-top: 1px dotted #000;
               margin-top: 14px;
             }
+            .qr {
+              text-align: center;
+              margin-top: 8px;
+            }
+            .qr img {
+              width: 64px;
+              height: 64px;
+              display: block;
+              margin: 0 auto;
+            }
             .center {
               text-align: center;
             }
@@ -846,6 +856,10 @@ export class PosComponent implements OnInit {
           <div class="footer">
             <div>Thank you for your visit!</div>
             <div>Please visit again</div>
+          </div>
+          <div class="qr">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fwww.tiktok.com%2F%40visakh.islamabad%3F_r%3D1%26_t%3DZS-93eJaTz7maa" alt="TikTok QR">
+            <div style="font-size:10px;margin-top:4px;">Follow us on TikTok</div>
           </div>
           <div class="end-dotted"></div>
         </body>
@@ -955,6 +969,16 @@ export class PosComponent implements OnInit {
             border-top: 1px dotted #000;
             margin-top: 14px;
           }
+          .qr {
+            text-align: center;
+            margin-top: 8px;
+          }
+          .qr img {
+            width: 64px;
+            height: 64px;
+            display: block;
+            margin: 0 auto;
+          }
           .center {
             text-align: center;
           }
@@ -1051,6 +1075,10 @@ export class PosComponent implements OnInit {
         <div class="footer">
           <div>Thank you for your visit!</div>
           <div>Please visit again</div>
+        </div>
+        <div class="qr">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fwww.tiktok.com%2F%40visakh.islamabad%3F_r%3D1%26_t%3DZS-93eJaTz7maa" alt="TikTok QR">
+          <div style="font-size:10px;margin-top:4px;">Follow us on TikTok</div>
         </div>
         <div class="end-dotted"></div>
       </body>
