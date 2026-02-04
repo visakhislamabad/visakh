@@ -190,7 +190,7 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
             }
             .end-dotted {
               border-top: 1px dotted #000;
-              margin-top: 6px;
+              margin-top: 14px;
             }
             .center {
               text-align: center;
@@ -285,11 +285,11 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
           </div>
           
           <div class="divider"></div>
-          <div class="end-dotted"></div>
           <div class="footer">
             <div>Thank you for your visit!</div>
             <div>Please visit again</div>
           </div>
+          <div class="end-dotted"></div>
         </body>
         </html>
       `,o=window.open("","_blank","width=300,height=600");if(!o){let c=confirm("Unable to open print window. Continue without printing?");t(c);return}o.document.open(),o.document.write(i),o.document.close();let s=!1,a=setInterval(()=>{if(o.closed&&!s){clearInterval(a),s=!0;let c=confirm("Print window was closed. Do you want to complete the payment anyway?");t(c)}},500);o.onload=()=>{setTimeout(()=>{o.print(),setTimeout(()=>{s||(s=!0,clearInterval(a),o.close(),t(!0))},1e3)},250)},setTimeout(()=>{s||(s=!0,clearInterval(a),o.closed||o.close(),t(!0))},3e4)})}printThermalBill(e){let t=e.items.map(o=>`
@@ -333,7 +333,7 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
           }
           .end-dotted {
             border-top: 1px dotted #000;
-            margin-top: 6px;
+            margin-top: 14px;
           }
           .center {
             text-align: center;
@@ -428,11 +428,11 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
         </div>
         
         <div class="divider"></div>
-        <div class="end-dotted"></div>
         <div class="footer">
           <div>Thank you for your visit!</div>
           <div>Please visit again</div>
         </div>
+        <div class="end-dotted"></div>
       </body>
       </html>
     `,i=window.open("","_blank","width=300,height=600");i&&(i.document.open(),i.document.write(r),i.document.close(),i.onload=()=>{setTimeout(()=>{i.print(),setTimeout(()=>i.close(),500)},250)})}deductPreparedItems(){return q(this,null,function*(){for(let e of this.cart){let t=this.menuItems.find(r=>r.id===e.menuItemId);if(t){if(t.preparedItemId){let r={inventoryItemId:t.preparedItemId,inventoryItemName:t.name,adjustmentType:"consumption",quantity:-e.quantity,unit:t.unit||"pieces",reason:"Sold via POS - Order",adjustedBy:this.authService.currentUser?.name||"System",date:new Date};try{yield this.db.createInventoryAdjustment(r)}catch(i){console.error("Error deducting prepared inventory:",i)}}if(t.recipeMapping&&t.recipeMapping.length>0)for(let r of t.recipeMapping){let i=r.quantityUsed*e.quantity,o={inventoryItemId:r.inventoryItemId,inventoryItemName:r.inventoryItemName,adjustmentType:"consumption",quantity:-i,unit:r.unit,reason:`Sold ${e.quantity}x ${t.name} via POS`,adjustedBy:this.authService.currentUser?.name||"System",date:new Date};try{yield this.db.createInventoryAdjustment(o)}catch(s){console.error("Error deducting recipe inventory:",s)}}}}})}deductInventoryForOrder(e){return q(this,null,function*(){for(let t of e.items||[])if(t.isDeal&&t.dealItems)for(let r of t.dealItems){let i=this.menuItems.find(s=>s.id===r.menuItemId);if(!i)continue;let o=r.quantity*t.quantity;yield this.deductInventoryForMenuItem(i,o,e.orderNumber)}else{let r=this.menuItems.find(i=>i.id===t.menuItemId);if(!r)continue;yield this.deductInventoryForMenuItem(r,t.quantity,e.orderNumber)}})}deductInventoryForMenuItem(e,t,r){return q(this,null,function*(){if(e.preparedItemId){let i={inventoryItemId:e.preparedItemId,inventoryItemName:e.name,adjustmentType:"consumption",quantity:-t,unit:e.unit||"pieces",reason:`Sold - Order ${r}`,adjustedBy:this.authService.currentUser?.name||"System",date:new Date};try{yield this.db.createInventoryAdjustment(i)}catch(o){console.error("Error deducting prepared inventory:",o)}}if(e.recipeMapping&&e.recipeMapping.length>0)for(let i of e.recipeMapping){let o=i.quantityUsed*t,s={inventoryItemId:i.inventoryItemId,inventoryItemName:i.inventoryItemName,adjustmentType:"consumption",quantity:-o,unit:i.unit,reason:`Sold ${t}x ${e.name} - Order ${r}`,adjustedBy:this.authService.currentUser?.name||"System",date:new Date};try{yield this.db.createInventoryAdjustment(s)}catch(a){console.error("Error deducting recipe inventory:",a)}}})}createOrder(e){return{orderNumber:`ORD-${Date.now()}`,tableNumber:this.isTakeaway?void 0:this.tableNumber,isTakeaway:this.isTakeaway,customerName:this.customerName||void 0,items:[...this.cart],subtotal:this.getSubtotal(),tax:this.getTax(),discount:this.discount,discountType:this.discount>0?"fixed":void 0,discountValue:this.discount>0?this.discount:void 0,totalAmount:this.getTotal(),status:e,createdAt:new Date,cashierId:this.authService.currentUser?.id||"",cashierName:this.authService.currentUser?.name||"Unknown"}}clearCart(){this.cart=[],this.tableNumber="",this.isTakeaway=!0,this.customerName="",this.discount=0}cancelOrder(){confirm("Are you sure you want to cancel this order?")&&this.clearCart()}loadCreditCustomers(){return q(this,null,function*(){try{let e=yield this.db.getCreditCustomers();this.creditCustomers=e.filter(t=>t.isCreditEnabled),this.filteredCreditCustomers=[...this.creditCustomers]}catch(e){console.error("Error loading credit customers:",e)}})}filterCreditCustomers(){let e=this.creditCustomerSearchText.toLowerCase().trim();if(!e){this.filteredCreditCustomers=[...this.creditCustomers];return}this.filteredCreditCustomers=this.creditCustomers.filter(t=>t.name.toLowerCase().includes(e)||t.phone.toLowerCase().includes(e)||t.companyName&&t.companyName.toLowerCase().includes(e))}openCreditCustomerSelectionForNewOrder(){this.showCreditCustomerSelection=!0,this.selectedCreditCustomer=null,this.selectedBillOrder=null}openCreditCustomerSelection(){this.showCreditCustomerSelection=!0,this.selectedCreditCustomer=null}closeCreditCustomerSelection(){this.showCreditCustomerSelection=!1,this.selectedCreditCustomer=null,this.creditCustomerSearchText="",this.filteredCreditCustomers=[...this.creditCustomers]}selectCreditCustomer(e){this.selectedCreditCustomer=e}postToAccount(){return q(this,null,function*(){if(!this.selectedCreditCustomer){alert("Please select a customer");return}this.isLoading=!0;try{if(this.selectedBillOrder){let e=this.getSelectedBillTotal();yield this.db.updateOrder(this.selectedBillOrder.id,{status:"completed",paymentMethod:"credit_account",completedAt:new Date}),yield this.db.postBillToAccount(this.selectedBillOrder,this.selectedCreditCustomer.id),alert(`Bill posted to ${this.selectedCreditCustomer.name}'s account.
