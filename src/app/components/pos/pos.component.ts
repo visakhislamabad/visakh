@@ -743,7 +743,7 @@ export class PosComponent implements OnInit {
             h1 {
               text-align: center;
               font-size: 18px;
-              margin: 5px 0;
+              margin: 0 0 4px; /* reduce top margin for compact header */
               font-weight: bold;
             }
             .center {
@@ -943,7 +943,7 @@ export class PosComponent implements OnInit {
           h1 {
             text-align: center;
             font-size: 18px;
-            margin: 5px 0;
+            margin: 0 0 4px; /* reduce top margin for compact header */
             font-weight: bold;
           }
           .center {
