@@ -303,6 +303,9 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
             <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fwww.tiktok.com%2F%40visakh.islamabad%3F_r%3D1%26_t%3DZS-93eJaTz7maa" alt="TikTok QR">
             <div style="font-size:10px;margin-top:4px;">Follow us on TikTok</div>
           </div>
+          <div style="text-align: center; margin-top: 8px; font-size: 10px;">
+            WhatsApp: +92 318 0056561
+          </div>
           <div class="end-dotted"></div>
         </body>
         </html>
@@ -459,6 +462,9 @@ Bill sent to printer.`)}catch(e){console.error("Error processing payment:",e),al
         <div class="qr">
           <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fwww.tiktok.com%2F%40visakh.islamabad%3F_r%3D1%26_t%3DZS-93eJaTz7maa" alt="TikTok QR">
           <div style="font-size:10px;margin-top:4px;">Follow us on TikTok</div>
+        </div>
+        <div style="text-align: center; margin-top: 8px; font-size: 10px;">
+          WhatsApp: +92 318 0056561
         </div>
         <div class="end-dotted"></div>
       </body>
