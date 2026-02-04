@@ -748,7 +748,7 @@ export class PosComponent implements OnInit {
             }
             .end-dotted {
               border-top: 1px dotted #000;
-              margin-top: 6px;
+              margin-top: 14px;
             }
             .center {
               text-align: center;
@@ -843,11 +843,11 @@ export class PosComponent implements OnInit {
           </div>
           
           <div class="divider"></div>
-          <div class="end-dotted"></div>
           <div class="footer">
             <div>Thank you for your visit!</div>
             <div>Please visit again</div>
           </div>
+          <div class="end-dotted"></div>
         </body>
         </html>
       `;
@@ -953,7 +953,7 @@ export class PosComponent implements OnInit {
           }
           .end-dotted {
             border-top: 1px dotted #000;
-            margin-top: 6px;
+            margin-top: 14px;
           }
           .center {
             text-align: center;
@@ -1048,11 +1048,11 @@ export class PosComponent implements OnInit {
         </div>
         
         <div class="divider"></div>
-        <div class="end-dotted"></div>
         <div class="footer">
           <div>Thank you for your visit!</div>
           <div>Please visit again</div>
         </div>
+        <div class="end-dotted"></div>
       </body>
       </html>
     `;
